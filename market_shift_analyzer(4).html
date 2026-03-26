@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Shift Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111318;
+    --bg3: #181c22;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #7a7f8e;
+    --accent: #f0c040;
+    --accent2: #e07b3a;
+    --green: #4caf8a;
+    --red: #e05555;
+    --blue: #4a9edd;
+    --purple: #9b72e8;
+    --wall: #f0c040;
+    --main: #4a9edd;
+    --innov: #9b72e8;
+    --broad: #4caf8a;
+    --gov: #e07b3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Sora', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* Layout */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 240px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .main { flex: 1; overflow-y: auto; }
+
+  /* Sidebar */
+  .logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+  .logo h1 { font-family: 'DM Serif Display', serif; font-size: 17px; color: var(--accent); line-height: 1.2; }
+  .logo p { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-top: 3px; }
+  .nav-section { padding: 14px 10px 6px; }
+  .nav-label { font-size: 9px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; padding: 0 8px; margin-bottom: 6px; }
+  .nav-btn { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 7px; border: none; background: none; color: var(--muted); cursor: pointer; font-family: 'Sora', sans-serif; font-size: 12px; text-align: left; transition: all 0.15s; }
+  .nav-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .nav-btn.active { background: rgba(240,192,64,0.12); color: var(--accent); }
+  .nav-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .ticker-input-wrap { padding: 10px; margin-top: auto; border-top: 1px solid var(--border); }
+  .ticker-input-wrap label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .ticker-input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 8px 10px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.08em; outline: none; }
+  .ticker-input:focus { border-color: var(--accent); }
+  .analyze-btn { width: 100%; margin-top: 8px; padding: 9px; background: var(--accent); color: #0a0c0f; border: none; border-radius: 7px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; transition: opacity 0.15s; }
+  .analyze-btn:hover { opacity: 0.88; }
+  .analyze-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Content pages */
+  .page { display: none; padding: 28px 32px; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 26px; }
+  .page-header h2 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--text); }
+  .page-header p { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.6; }
+
+  /* Cards */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .card-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  /* Shift Cards */
+  .shifts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .shift-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+  .shift-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+  .shift-card.wall::before { background: var(--wall); }
+  .shift-card.main::before { background: var(--main); }
+  .shift-card.innov::before { background: var(--innov); }
+  .shift-card.broad::before { background: var(--broad); }
+  .shift-card.gov::before { background: var(--gov); }
+  .shift-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .shift-card.selected { border-color: rgba(240,192,64,0.4); background: rgba(240,192,64,0.05); }
+  .shift-icon { font-size: 22px; margin-bottom: 8px; }
+  .shift-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .shift-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .shift-signals { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .shift-signal { font-size: 11px; color: var(--muted); margin-bottom: 3px; padding-left: 10px; position: relative; }
+  .shift-signal::before { content: '→'; position: absolute; left: 0; color: var(--accent); }
+
+  /* Power Moves */
+  .power-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .power-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .power-num { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--border2); line-height: 1; margin-bottom: 8px; }
+  .power-name { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .power-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .signal-row { display: flex; gap: 8px; margin-top: 10px; }
+  .sig-bull { background: rgba(76,175,138,0.15); color: var(--green); border: 1px solid rgba(76,175,138,0.3); padding: 3px 8px; border-radius: 4px; font-size: 10px; }
+  .sig-bear { background: rgba(224,85,85,0.15); color: var(--red); border: 1px solid rgba(224,85,85,0.3); padding: 3px 8px; border-radius: 4px; font-size: 10px; }
+
+  /* 29-Point Checklist */
+  .checklist-section { margin-bottom: 20px; }
+  .checklist-section h3 { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .check-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 7px; margin-bottom: 3px; cursor: pointer; transition: background 0.12s; }
+  .check-item:hover { background: rgba(255,255,255,0.03); }
+  .check-box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border2); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .check-box.checked { background: var(--green); border-color: var(--green); }
+  .check-box.checked::after { content: '✓'; font-size: 10px; color: #0a0c0f; font-weight: 700; }
+  .check-label { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .check-sub { font-size: 10px; color: var(--muted); }
+  .checklist-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+  .progress-bar-wrap { flex: 1; background: var(--bg3); border-radius: 99px; height: 6px; }
+  .progress-bar { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--green), var(--accent)); transition: width 0.4s; }
+  .progress-label { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--accent); min-width: 48px; text-align: right; }
+  .verdict-area { margin-top: 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .verdict-area h3 { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .verdict-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .verdict-select { background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 8px 10px; color: var(--text); font-family: 'Sora', sans-serif; font-size: 12px; width: 100%; outline: none; }
+  .verdict-select:focus { border-color: var(--accent); }
+  .verdict-textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 10px 12px; color: var(--text); font-family: 'Sora', sans-serif; font-size: 12px; resize: vertical; min-height: 80px; outline: none; margin-top: 12px; }
+  .verdict-textarea:focus { border-color: var(--accent); }
+
+  /* AI Analysis Page */
+  .ticker-hero { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .ticker-hero .ticker { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; color: var(--accent); }
+  .ticker-hero .subtext { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .score-ring { text-align: center; }
+  .score-big { font-family: 'DM Mono', monospace; font-size: 42px; font-weight: 500; line-height: 1; }
+  .score-label { font-size: 10px; color: var(--muted); margin-top: 4px; letter-spacing: 0.08em; }
+  .ai-output { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-top: 12px; }
+  .ai-output p { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+  .ai-thinking { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .dot-pulse span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin: 0 2px; animation: pulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+
+  /* 20/30/40 Rule */
+  .rule-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .rule-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; text-align: center; }
+  .rule-pct { font-family: 'DM Serif Display', serif; font-size: 44px; color: var(--accent); line-height: 1; }
+  .rule-title { font-size: 12px; font-weight: 600; margin: 8px 0 6px; }
+  .rule-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .rule-note { background: rgba(240,192,64,0.07); border: 1px solid rgba(240,192,64,0.2); border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
+  .rule-note p { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .rule-note strong { color: var(--accent); }
+
+  /* Tags */
+  .tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 500; margin: 2px; }
+  .tag-sector { background: rgba(74,158,221,0.15); color: var(--blue); border: 1px solid rgba(74,158,221,0.25); }
+  .tag-shift { background: rgba(240,192,64,0.12); color: var(--accent); border: 1px solid rgba(240,192,64,0.2); }
+
+  /* Sector map */
+  .sector-map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .sector-tile { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.15s; }
+  .sector-tile:hover, .sector-tile.hot { border-color: var(--accent); background: rgba(240,192,64,0.07); }
+  .sector-tile .s-name { font-size: 11px; font-weight: 500; }
+  .sector-tile .s-perf { font-family: 'DM Mono', monospace; font-size: 12px; margin-top: 3px; }
+  .s-pos { color: var(--green); }
+  .s-neg { color: var(--red); }
+
+  /* Misc */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .row { display: flex; gap: 14px; }
+  .row > * { flex: 1; }
+  .label { font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+  .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #0a0c0f; font-size: 11px; font-weight: 700; margin-right: 8px; flex-shrink: 0; }
+  .step-row { display: flex; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .step-row:last-child { border-bottom: none; }
+  .step-content { flex: 1; }
+  .step-content h4 { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .step-content p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* Screener styles */
+  .risk-opt { width:100%; text-align:left; padding:8px 10px; border-radius:7px; border:1px solid var(--border); background:var(--bg3); color:var(--muted); cursor:pointer; font-family:'Sora',sans-serif; font-size:11px; transition:all 0.15s; }
+  .risk-opt:hover { border-color:var(--border2); color:var(--text); }
+  .risk-opt.active { border-color:rgba(240,192,64,0.4); background:rgba(240,192,64,0.08); color:var(--accent); }
+  .pipeline-step { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); }
+  .pipeline-step:last-child { border:none; }
+  .pipe-icon { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; }
+  .pipe-pending { background:var(--bg3); border:1px solid var(--border2); }
+  .pipe-running { background:rgba(240,192,64,0.2); border:1px solid var(--accent); animation:pipePulse 1s ease-in-out infinite; }
+  .pipe-done { background:rgba(76,175,138,0.2); border:1px solid var(--green); }
+  .pipe-fail { background:rgba(224,85,85,0.2); border:1px solid var(--red); }
+  @keyframes pipePulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+  .stock-result-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:12px; transition:border-color 0.15s; }
+  .stock-result-card:hover { border-color:var(--border2); }
+  .src-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+  .src-ticker { font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:var(--accent); }
+  .src-name { font-size:12px; color:var(--muted); margin-top:2px; }
+  .src-score { text-align:center; }
+  .src-score-num { font-family:'DM Mono',monospace; font-size:28px; font-weight:500; line-height:1; }
+  .src-score-label { font-size:9px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+  .src-verdict-badge { display:inline-flex; align-items:center; padding:4px 12px; border-radius:99px; font-size:11px; font-weight:600; margin-bottom:10px; }
+  .verdict-buy { background:rgba(76,175,138,0.15); color:var(--green); border:1px solid rgba(76,175,138,0.3); }
+  .verdict-watch { background:rgba(240,192,64,0.12); color:var(--accent); border:1px solid rgba(240,192,64,0.25); }
+  .verdict-avoid { background:rgba(224,85,85,0.12); color:var(--red); border:1px solid rgba(224,85,85,0.25); }
+  .src-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:10px 0; }
+  .src-cell { background:var(--bg3); border-radius:7px; padding:8px 10px; }
+  .src-cell-label { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:3px; }
+  .src-cell-val { font-size:12px; font-weight:500; color:var(--text); }
+  .src-body { font-size:12px; color:var(--muted); line-height:1.7; margin-top:8px; }
+  .src-actions { display:flex; gap:8px; margin-top:12px; }
+  .src-action-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--border2); background:none; color:var(--muted); font-family:'Sora',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; }
+  .src-action-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .src-action-btn.primary { background:var(--accent); border-color:var(--accent); color:#0a0c0f; font-weight:600; }
+  .src-action-btn.primary:hover { opacity:0.85; }
+
+  /* Fact-check styles */
+  .fc-wrap { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:14px 16px; font-size:12px; }
+  .fc-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .fc-badge { padding:3px 10px; border-radius:99px; font-size:10px; font-weight:600; }
+  .fc-verified { background:rgba(76,175,138,0.15); color:var(--green); border:1px solid rgba(76,175,138,0.3); }
+  .fc-partial  { background:rgba(240,192,64,0.12);  color:var(--accent); border:1px solid rgba(240,192,64,0.3); }
+  .fc-conflict { background:rgba(224,85,85,0.12);   color:var(--red);    border:1px solid rgba(224,85,85,0.3); }
+  .fc-claim { display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px solid var(--border); }
+  .fc-claim:last-child { border:none; padding-bottom:0; }
+  .fc-icon { font-size:13px; flex-shrink:0; margin-top:1px; }
+  .fc-claim-text { flex:1; color:var(--text); line-height:1.6; }
+  .fc-claim-note { font-size:10px; color:var(--muted); margin-top:2px; }
+  .fc-sources { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:6px; }
+  .fc-source-link { font-size:10px; padding:2px 9px; border-radius:5px; background:var(--bg2); border:1px solid var(--border2); color:var(--blue); text-decoration:none; }
+  .fc-source-link:hover { border-color:var(--blue); }
+
+  /* Portfolio styles */
+  .port-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .port-table th { text-align:left; padding:8px 10px; color:var(--muted); font-weight:500; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; border-bottom:1px solid var(--border); }
+  .port-table td { padding:10px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .port-table tr:last-child td { border-bottom:none; }
+  .port-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .port-ticker { font-family:'DM Mono',monospace; font-size:13px; font-weight:500; color:var(--accent); }
+  .port-name { font-size:11px; color:var(--muted); }
+  .port-pos { color:var(--green); }
+  .port-neg { color:var(--red); }
+  .port-neutral { color:var(--muted); }
+  .port-input { background:var(--bg3); border:1px solid var(--border2); border-radius:5px; padding:4px 8px; color:var(--text); font-family:'DM Mono',monospace; font-size:12px; width:90px; outline:none; }
+  .port-input:focus { border-color:var(--accent); }
+  .port-section-header { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); padding:12px 10px 6px; background:var(--bg3); border-radius:6px; margin-bottom:2px; }
+  .edit-btn { padding:3px 10px; border-radius:5px; border:1px solid var(--border2); background:none; color:var(--muted); font-size:10px; cursor:pointer; font-family:'Sora',sans-serif; transition:all 0.12s; }
+  .edit-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .edit-btn.save { background:var(--green); border-color:var(--green); color:#0a0c0f; font-weight:600; }
+  .edit-btn.del { border-color:rgba(224,85,85,0.4); color:var(--red); }
+  .edit-btn.del:hover { background:rgba(224,85,85,0.15); }
+  .port-ai-card { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .port-ai-ticker { font-family:'DM Mono',monospace; font-size:16px; color:var(--accent); font-weight:500; }
+  .port-summary-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:20px; }
+  @media(max-width:700px){ .port-summary-grid { grid-template-columns:repeat(3,1fr); } }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <h1>Market Shift<br>Analyzer</h1>
+    <p>Institutional Flow · Research Tool</p>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Framework</div>
+    <button class="nav-btn active" onclick="showPage('shifts')">
+      <div class="nav-dot" style="background:var(--accent)"></div>5 Market Shifts
+    </button>
+    <button class="nav-btn" onclick="showPage('power')">
+      <div class="nav-dot" style="background:var(--blue)"></div>3 Power Moves
+    </button>
+    <button class="nav-btn" onclick="showPage('sectors')">
+      <div class="nav-dot" style="background:var(--green)"></div>Sector Rotation
+    </button>
+  </nav>
+  <nav class="nav-section">
+    <div class="nav-label">Analysis</div>
+    <button class="nav-btn" onclick="showPage('portfolio')" style="position:relative">
+      <div class="nav-dot" style="background:var(--accent)"></div>My Portfolio
+      <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:9px;background:var(--accent);color:#0a0c0f;padding:2px 6px;border-radius:99px;font-weight:600">LIVE</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('checklist')">
+      <div class="nav-dot" style="background:var(--purple)"></div>29-Point Checklist
+    </button>
+    <button class="nav-btn" onclick="showPage('rule2030')">
+      <div class="nav-dot" style="background:var(--accent2)"></div>20/30/40 Rules
+    </button>
+    <button class="nav-btn" onclick="showPage('aipage')">
+      <div class="nav-dot" style="background:var(--accent)"></div>AI Deep Dive
+    </button>
+    <button class="nav-btn" onclick="showPage('screener')" style="position:relative">
+      <div class="nav-dot" style="background:var(--green)"></div>Live Screener
+      <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:9px;background:var(--green);color:#0a0c0f;padding:2px 6px;border-radius:99px;font-weight:600">NEW</span>
+    </button>
+    <button class="nav-btn" id="settingsNavBtn" onclick="showPage('settings')" style="position:relative">
+      <div class="nav-dot" style="background:var(--muted)" id="massiveDot"></div>⚙ Settings & Data
+    </button>
+  </nav>
+  <div class="ticker-input-wrap">
+    <label>Stock ticker to analyze</label>
+    <input class="ticker-input" id="tickerInput" placeholder="e.g. NVDA" maxlength="8">
+    <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()">Run Full Analysis</button>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- PAGE: 5 MARKET SHIFTS -->
+  <div class="page active" id="page-shifts">
+    <div class="page-header">
+      <h2>5 Market Shifts</h2>
+      <p>Identify which type of shift is driving current capital flows. Select one or more active shifts to focus your research.</p>
+    </div>
+    <div class="shifts-grid">
+      <div class="shift-card wall" onclick="toggleShift(this,'wall')" data-shift="Wall Street">
+        <div class="shift-icon">🏦</div>
+        <div class="shift-name" style="color:var(--wall)">Wall Street Shift</div>
+        <div class="shift-desc">Investment banks, VCs, and institutional funds redirect capital allocation to new sectors or asset classes.</div>
+        <div class="shift-signals">
+          <div class="shift-signal">Rising 13F institutional filings in sector</div>
+          <div class="shift-signal">VC deal volume & valuations climbing</div>
+          <div class="shift-signal">IPO pipeline concentration in theme</div>
+          <div class="shift-signal">Bank analyst upgrades clustering</div>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:var(--muted)">Current example: AI infrastructure, defense, domestic manufacturing</div>
+      </div>
+      <div class="shift-card main" onclick="toggleShift(this,'main')" data-shift="Main Street">
+        <div class="shift-icon">🛒</div>
+        <div class="shift-name" style="color:var(--main)">Main Street Shift</div>
+        <div class="shift-desc">Changes in consumer and business spending patterns drive revenue growth in certain industries.</div>
+        <div class="shift-signals">
+          <div class="shift-signal">Retail sales data by category shifting</div>
+          <div class="shift-signal">Consumer sentiment + credit data</div>
+          <div class="shift-signal">SMB capex & hiring intentions changing</div>
+          <div class="shift-signal">Search trend + foot traffic data</div>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:var(--muted)">Current example: Domestic goods, staples vs discretionary divergence</div>
+      </div>
+      <div class="shift-card innov" onclick="toggleShift(this,'innov')" data-shift="Innovation">
+        <div class="shift-icon">⚡</div>
+        <div class="shift-name" style="color:var(--innov)">Innovation Shift</div>
+        <div class="shift-desc">New technology or intellectual property creates a structural change in how industries operate or compete.</div>
+        <div class="shift-signals">
+          <div class="shift-signal">Patent filing acceleration in area</div>
+          <div class="shift-signal">Enterprise software adoption rates</div>
+          <div class="shift-signal">R&D spending as % of revenue rising</div>
+          <div class="shift-signal">Legacy industry margin compression</div>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:var(--muted)">Current example: AI deployment (SaaS), power grid modernization</div>
+      </div>
+      <div class="shift-card broad" onclick="toggleShift(this,'broad')" data-shift="Broad Market">
+        <div class="shift-icon">📊</div>
+        <div class="shift-name" style="color:var(--broad)">Broad Market Shift</div>
+        <div class="shift-desc">Macroeconomic changes — rates, inflation, GDP, currency — create sector-wide tailwinds or headwinds.</div>
+        <div class="shift-signals">
+          <div class="shift-signal">Fed rate path expectations shifting</div>
+          <div class="shift-signal">Yield curve shape & credit spreads</div>
+          <div class="shift-signal">Dollar strength vs EM currencies</div>
+          <div class="shift-signal">Earnings revision breadth across market</div>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:var(--muted)">Current example: Tariff inflation, stagflation risk, rate uncertainty</div>
+      </div>
+      <div class="shift-card gov" onclick="toggleShift(this,'gov')" data-shift="Government">
+        <div class="shift-icon">⚖️</div>
+        <div class="shift-name" style="color:var(--gov)">Government Shift</div>
+        <div class="shift-desc">New regulations, trade policy, subsidies, or legislation force capital reallocation across industries.</div>
+        <div class="shift-signals">
+          <div class="shift-signal">Legislative pipeline & regulatory rulings</div>
+          <div class="shift-signal">Defense/infrastructure spending bills</div>
+          <div class="shift-signal">Tariff regimes & trade agreements</div>
+          <div class="shift-signal">Antitrust / IP enforcement trends</div>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:var(--muted)">Current example: OBBBA reshoring incentives, bridge tariffs, SCOTUS IEEPA ruling</div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:8px;cursor:default">
+        <div style="font-size:13px;font-weight:500;color:var(--muted)">Active Shifts Selected</div>
+        <div id="activeShiftsDisplay" style="font-family:'DM Mono',monospace; font-size:24px; color:var(--accent)">0</div>
+        <div id="activeShiftNames" style="font-size:11px;color:var(--muted);line-height:1.7"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Multiple active shifts = stronger signal</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Goat Academy — Step 1: Follow The Money</div>
+      <div class="step-row">
+        <div class="step-badge">1</div>
+        <div class="step-content">
+          <h4>Identify active shift types above</h4>
+          <p>Use the 5 shift categories to classify what type of capital reallocation is occurring. Multiple simultaneous shifts compound conviction.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-badge">2</div>
+        <div class="step-content">
+          <h4>Check FINVIZ heatmap for sector flows</h4>
+          <p>Navigate to finviz.com → Heatmap. Identify sectors showing sustained positive performance across daily, weekly, and monthly timeframes with above-average volume.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-badge">3</div>
+        <div class="step-content">
+          <h4>Confirm with 13F filings & institutional ownership trends</h4>
+          <p>Cross-reference FINVIZ signals with recent 13F data. Look for breadth — strength across multiple names in the sector, not just one outlier.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-badge">4</div>
+        <div class="step-content">
+          <h4>Identify candidate securities</h4>
+          <p>Once a favored sector is confirmed, list constituent names. Then proceed to Step 2 — apply the 3 Power Moves to select the winner within the sector.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: 3 POWER MOVES -->
+  <div class="page" id="page-power">
+    <div class="page-header">
+      <h2>3 Power Moves</h2>
+      <p>After identifying a favored sector via institutional flow, apply these three technical filters to isolate the highest-probability security.</p>
+    </div>
+    <div class="power-grid">
+      <div class="power-card">
+        <div class="power-num">01</div>
+        <div class="power-name">Heartbeat Pattern</div>
+        <div class="power-desc">The price chart shows consistent higher highs and higher lows — a visual rhythm of persistent buying pressure indicating institutional accumulation has resolved fundamental uncertainty.</div>
+        <div class="signal-row">
+          <span class="sig-bull">↑ HH + HL sequence</span>
+          <span class="sig-bear">↓ LH + LL pattern</span>
+        </div>
+        <div style="margin-top:12px; font-size:11px; color:var(--muted); line-height:1.6">
+          Look for: sequential advances, pullbacks holding above prior support, increasing consolidation at higher levels, volume confirmation on advance phases.
+        </div>
+      </div>
+      <div class="power-card">
+        <div class="power-num">02</div>
+        <div class="power-name">50-Day Moving Average</div>
+        <div class="power-desc">The 50-DMA is the "line in the sand" for trend assessment. Price above an upward-sloping 50-DMA = institutional support. Breaks below = weakening conviction.</div>
+        <div class="signal-row">
+          <span class="sig-bull">↑ Price > 50-DMA, slope up</span>
+          <span class="sig-bear">↓ Break below 50-DMA</span>
+        </div>
+        <div style="margin-top:12px; font-size:11px; color:var(--muted); line-height:1.6">
+          Tests of the 50-DMA that hold with high volume are strongest signals of institutional support. Use as risk management trigger — not in isolation.
+        </div>
+      </div>
+      <div class="power-card">
+        <div class="power-num">03</div>
+        <div class="power-name">Volume = Power</div>
+        <div class="power-desc">Institutional size creates measurable trading activity. High volume on up days = accumulation. Low volume on down days = lack of distribution. Volume expansion at key levels = conviction.</div>
+        <div class="signal-row">
+          <span class="sig-bull">↑ High vol on advances</span>
+          <span class="sig-bear">↓ High vol on declines</span>
+        </div>
+        <div style="margin-top:12px; font-size:11px; color:var(--muted); line-height:1.6">
+          Price moves on heavy volume carry far more weight than those on light trading. Volume contraction = lack of institutional commitment.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="card">
+      <div class="card-title">Combined Signal Matrix</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:500">Factor</th>
+            <th style="text-align:left;padding:8px 10px;color:var(--green);font-weight:500">Bullish Signal</th>
+            <th style="text-align:left;padding:8px 10px;color:var(--red);font-weight:500">Bearish Signal</th>
+            <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:500">Use For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 10px;color:var(--accent)">Heartbeat Pattern</td>
+            <td style="padding:9px 10px;color:var(--text)">Higher highs, higher lows</td>
+            <td style="padding:9px 10px;color:var(--text)">Lower highs, lower lows</td>
+            <td style="padding:9px 10px;color:var(--muted)">Momentum confirmation</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 10px;color:var(--accent)">50-Day MA</td>
+            <td style="padding:9px 10px;color:var(--text)">Price above, slope up</td>
+            <td style="padding:9px 10px;color:var(--text)">Price below, slope down</td>
+            <td style="padding:9px 10px;color:var(--muted)">Trend definition & risk mgmt</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:9px 10px;color:var(--accent)">Volume</td>
+            <td style="padding:9px 10px;color:var(--text)">High on up days</td>
+            <td style="padding:9px 10px;color:var(--text)">High on down days</td>
+            <td style="padding:9px 10px;color:var(--muted)">Institutional participation</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 10px;color:var(--accent)">Sector Rotation</td>
+            <td style="padding:9px 10px;color:var(--text)">Institutional inflows</td>
+            <td style="padding:9px 10px;color:var(--text)">Institutional outflows</td>
+            <td style="padding:9px 10px;color:var(--muted)">Primary screening filter</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE: SECTOR ROTATION -->
+  <div class="page" id="page-sectors">
+    <div class="page-header">
+      <h2>Sector Rotation Monitor</h2>
+      <p>Track which sectors are receiving institutional capital flows. Mark hot sectors to guide your stock screening. Use FINVIZ to validate in real time.</p>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Current Regime — March 2026 Context</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8">
+        <span style="color:var(--green)">■</span> <strong style="color:var(--text)">Domestic industrials, energy, defense</strong> — benefiting from reshoring (OBBBA), tariff protection (steel/aluminum), Middle East oil premium.<br>
+        <span style="color:var(--red)">■</span> <strong style="color:var(--text)">Multinational tech, retail</strong> — facing tariff headwinds on global supply chains. Apple, Walmart, CAT under cost pressure.<br>
+        <span style="color:var(--accent)">■</span> <strong style="color:var(--text)">AI deployment layer</strong> — rotation from infrastructure (chips) to deployment (SaaS, power grids, data centers). Watch closely.
+      </div>
+    </div>
+    <div class="sector-map" id="sectorMap"></div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Risk-Adjusted Sector Selection Guide</div>
+      <div class="row">
+        <div>
+          <div class="label">Conservative (low volatility)</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:6px">Utilities · Consumer Staples · Healthcare · Dividend Industrials. Defensive characteristics, predictable FCF, lower beta. Suitable for &lt;15% of portfolio in volatile regime.</div>
+        </div>
+        <div>
+          <div class="label">Aggressive (growth + volatility)</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:6px">Technology · Biotech · Emerging industries · Small-cap domestic manufacturers. Higher volatility, asymmetric upside. Size as speculative bucket (&lt;5% per position per your framework).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: 29-POINT CHECKLIST -->
+  <div class="page" id="page-checklist">
+    <div class="page-header">
+      <h2>29-Point Stock Checklist</h2>
+      <p>Your full institutional-grade evaluation framework. Work through all 8 sections before any position decision.</p>
+    </div>
+    <div class="checklist-progress">
+      <div style="font-size:12px;color:var(--muted)">Checklist completion</div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="checkProgress" style="width:0%"></div></div>
+      <div class="progress-label" id="checkCount">0 / 29</div>
+    </div>
+    <div id="checklistContainer"></div>
+    <div class="verdict-area">
+      <h3>Verdict & Position Sizing</h3>
+      <div class="verdict-row">
+        <div>
+          <div class="label">Verdict</div>
+          <select class="verdict-select" id="verdictSelect">
+            <option value="">— Select —</option>
+            <option value="strong-buy">Strong Buy (Core)</option>
+            <option value="buy">Buy (Standard)</option>
+            <option value="watchlist">Watchlist — Wait</option>
+            <option value="avoid">Avoid</option>
+            <option value="short">Short / Hedge</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">Max Position Size %</div>
+          <select class="verdict-select" id="posSize">
+            <option value="">— Select —</option>
+            <option value="<2">Speculative &lt;2%</option>
+            <option value="2-5">Speculative 2–5%</option>
+            <option value="5-10">Standard 5–10%</option>
+            <option value="10-15">Core 10–15%</option>
+            <option value=">15">Conviction &gt;15%</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">Bucket</div>
+          <select class="verdict-select" id="bucketSelect">
+            <option value="">— Select —</option>
+            <option value="core">Core compounder</option>
+            <option value="cyclical">Cyclical</option>
+            <option value="thematic">Thematic</option>
+            <option value="speculative">Speculative</option>
+          </select>
+        </div>
+      </div>
+      <textarea class="verdict-textarea" placeholder="Thesis summary: key winner scenario, kill-switch triggers, metrics to monitor..."></textarea>
+    </div>
+  </div>
+
+  <!-- PAGE: 20/30/40 RULES -->
+  <div class="page" id="page-rule2030">
+    <div class="page-header">
+      <h2>20 / 30 / 40 Rules</h2>
+      <p>Four interlocking rules for profit-taking, risk management, diversification, and quality filtering. Apply all four to every position decision.</p>
+    </div>
+
+    <!-- RULE 1: PROFIT TAKING -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Rule 1 — Profit-Taking &amp; Exit Strategy (Sell Schedule)</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">A disciplined sell schedule to prevent round-tripping gains — letting a winning position run all the way back to zero. Locks in profits progressively while leaving a runner.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;margin-bottom:6px">TRIGGER</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--accent);line-height:1">+40%</div>
+          <div style="font-size:11px;color:var(--text);margin-top:6px;font-weight:500">Sell 20% of position</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">Locks in a portion of principal. Reduces cost basis on remaining shares.</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;margin-bottom:6px">NEXT TRIGGER</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--accent);line-height:1">+40%</div>
+          <div style="font-size:11px;color:var(--text);margin-top:6px;font-weight:500">Sell another 20%</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">If stock climbs another 40% from last trim, trim again. Remaining position runs freely.</div>
+        </div>
+        <div style="background:rgba(76,175,138,0.08);border:1px solid rgba(76,175,138,0.25);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;margin-bottom:6px">NET RESULT</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--green);line-height:1">~60%</div>
+          <div style="font-size:11px;color:var(--text);margin-top:6px;font-weight:500">Capital returned</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">~125% of original position value still working in the market due to price appreciation.</div>
+        </div>
+      </div>
+
+      <!-- Visual sell ladder -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Position Value Over Time — Example: $10,000 entry</div>
+        <div id="sellLadder"></div>
+      </div>
+    </div>
+
+    <!-- RULE 2: RISK MANAGEMENT -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Rule 2 — Risk Management (2% Portfolio / 20% Stop-Loss)</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">Professional traders pair the profit-taking rule with strict loss-mitigation benchmarks. Two hard limits protect capital at both position and portfolio level.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:rgba(224,85,85,0.07);border:1px solid rgba(224,85,85,0.2);border-radius:10px;padding:14px 16px">
+          <div style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--red);line-height:1;margin-bottom:6px">2%</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:6px">Portfolio Rule — Max Account Loss Per Stock</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.7">Never allow a single stock position to lose more than 2% of your <em>total account value</em>. Protects overall capital from a single catastrophic failure. On a $25,370 portfolio → max loss per name = ~$507.</div>
+          <div style="margin-top:10px;background:var(--bg3);border-radius:7px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Your portfolio: ~$25,370</div>
+            <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--red)">Max loss/position: $507</div>
+          </div>
+        </div>
+        <div style="background:rgba(224,85,85,0.07);border:1px solid rgba(224,85,85,0.2);border-radius:10px;padding:14px 16px">
+          <div style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--red);line-height:1;margin-bottom:6px">20%</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:6px">Individual Stop-Loss — Max Loss Per Position</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.7">Use a maximum 20% stop-loss on any individual position. Liberal enough to avoid getting whipsawed by normal volatility, but ensures you cut and run before a 20% loss becomes 50% or 80%. No exceptions.</div>
+          <div style="margin-top:10px;background:var(--bg3);border-radius:7px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Logic: 20% down → need 25% to recover. 50% down → need 100%.</div>
+            <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--accent)">Cut early. Reload at better prices.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RULE 3: DIVERSIFICATION -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Rule 3 — Diversification Benchmark (20–30–40 Holdings)</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">How many stocks should you actually own? Research shows 90% of diversification benefits are achieved with just 12–18 stocks. Here's the spectrum:</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        <div style="background:var(--bg3);border:1px solid rgba(76,175,138,0.3);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--green);line-height:1">20</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin:6px 0 4px">The Target</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">Sufficient diversification. Most individual investors can effectively manage 5–10 stocks. 20 is the ceiling for active management without becoming a closet index fund.</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid rgba(240,192,64,0.3);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--accent);line-height:1">30</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin:6px 0 4px">The Warning Zone</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">At 30 holdings you start losing your edge. Marginal diversification benefit drops sharply. Each new name adds complexity but minimal risk reduction.</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid rgba(224,85,85,0.3);border-radius:10px;padding:14px 16px;text-align:center">
+          <div style="font-family:'DM Serif Display',serif;font-size:38px;color:var(--red);line-height:1">40</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin:6px 0 4px">The Limit — Closet Index</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">&gt;40 stocks = you're performing like the S&P 500 but with more work, more fees, and more taxes. You've lost your selection alpha entirely.</div>
+        </div>
+      </div>
+      <div style="background:rgba(240,192,64,0.07);border:1px solid rgba(240,192,64,0.2);border-radius:10px;padding:12px 16px;font-size:11px;color:var(--muted);line-height:1.7">
+        <strong style="color:var(--accent)">Your portfolio context:</strong> Currently ~13 positions (PLTR, GOOGL, AMZN, NVDA, AMKR, SNDK, SCHD, GRAB, ASTS, BTC, SOL, gold, silver). This sits in the sweet spot — well within the 20-stock target, still fully manageable, and far from closet-indexing territory.
+      </div>
+    </div>
+
+    <!-- RULE 4: RULE OF 40 -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Rule 4 — Fundamental Quality Filter (Rule of 40 — SaaS/Tech)</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">When evaluating a tech/SaaS stock, only buy if: <strong style="color:var(--accent)">Revenue Growth % + Profit Margin % ≥ 40</strong>. The balance between growth and profitability defines whether the business model is sustainable.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div style="background:var(--bg3);border:1px solid rgba(155,114,232,0.3);border-radius:10px;padding:14px 16px">
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:8px">Aggressive Growth Profile</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:'DM Mono',monospace;font-size:20px;color:var(--accent)">30%</span>
+            <span style="color:var(--muted);font-size:12px">Revenue Growth</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-family:'DM Mono',monospace;font-size:20px;color:var(--blue)">+10%</span>
+            <span style="color:var(--muted);font-size:12px">Profit Margin</span>
+          </div>
+          <div style="background:rgba(240,192,64,0.1);border-radius:6px;padding:6px 10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent)">= 40 ✓ Passes</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6">Attractive for aggressive growth investors. Reinvesting heavily into expansion. Prioritize growth rate trajectory.</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid rgba(76,175,138,0.3);border-radius:10px;padding:14px 16px">
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Mature Value Profile</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:'DM Mono',monospace;font-size:20px;color:var(--accent)">10%</span>
+            <span style="color:var(--muted);font-size:12px">Revenue Growth</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-family:'DM Mono',monospace;font-size:20px;color:var(--blue)">+30%</span>
+            <span style="color:var(--muted);font-size:12px">Profit Margin</span>
+          </div>
+          <div style="background:rgba(240,192,64,0.1);border-radius:6px;padding:6px 10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent)">= 40 ✓ Passes</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6">Attractive for stability and cash flow investors. High FCF conversion. Mature market position with pricing power.</div>
+        </div>
+      </div>
+
+      <!-- Interactive Rule of 40 Calculator -->
+      <div style="background:rgba(155,114,232,0.07);border:1px solid rgba(155,114,232,0.2);border-radius:10px;padding:16px">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:14px">Rule of 40 Calculator</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+          <div>
+            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Revenue Growth %</label>
+            <input type="range" min="0" max="100" value="25" id="growthSlider" style="width:100%" oninput="calcR40()">
+            <div style="font-family:'DM Mono',monospace;font-size:18px;color:var(--accent);margin-top:4px" id="growthVal">25%</div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Profit Margin %</label>
+            <input type="range" min="-30" max="60" value="10" id="marginSlider" style="width:100%" oninput="calcR40()">
+            <div style="font-family:'DM Mono',monospace;font-size:18px;color:var(--blue);margin-top:4px" id="marginVal">10%</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="flex:1;background:var(--bg3);border-radius:99px;height:8px;overflow:hidden">
+            <div id="r40Bar" style="height:8px;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--accent));transition:width 0.3s;width:35%"></div>
+          </div>
+          <div>
+            <div id="r40Score" style="font-family:'DM Mono',monospace;font-size:24px;color:var(--accent)">35</div>
+            <div id="r40Verdict" style="font-size:10px;color:var(--red);margin-top:2px">Below 40 — Avoid</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="card">
+      <div class="card-title">Your Crash-Prep Playbook</div>
+      <div class="step-row"><div class="step-badge">1</div><div class="step-content"><h4>Raise cash / T-bills</h4><p>Build dry powder when crash indicators are flashing — high CAPE, narrow leadership, rising credit spreads, consumer delinquency trends.</p></div></div>
+      <div class="step-row"><div class="step-badge">2</div><div class="step-content"><h4>Add 5–10% gold sleeve</h4><p>Insurance position. Currently held in portfolio. Activate when currency/macro uncertainty is elevated (e.g. Fed independence risk).</p></div></div>
+      <div class="step-row"><div class="step-badge">3</div><div class="step-content"><h4>Optional 1–2% SPY/QQQ puts</h4><p>Light hedge only. Not a directional bet. Catastrophic insurance against rapid drawdown.</p></div></div>
+      <div class="step-row"><div class="step-badge">4</div><div class="step-content"><h4>Deploy dry powder in 3–4 tranches</h4><p>When S&P drops 25–40% from peak, deploy in tranches — not all at once. Focus on quality compounders, not leveraged bets.</p></div></div>
+    </div>
+  </div>
+
+  <!-- PAGE: AI DEEP DIVE -->
+  <div class="page" id="page-aipage">
+    <div class="page-header">
+      <h2>AI Deep Dive</h2>
+      <p>Enter a ticker in the sidebar and run analysis. The AI will apply the 5 Market Shifts, 3 Power Moves, and the 29-point framework to give you a structured research brief.</p>
+    </div>
+    <div class="ticker-hero" id="heroArea">
+      <div>
+        <div class="ticker" id="heroTicker">—</div>
+        <div class="subtext" id="heroSubtext">Enter a ticker and click "Run Full Analysis"</div>
+      </div>
+      <div class="score-ring">
+        <div class="score-big" id="heroScore" style="color:var(--muted)">—</div>
+        <div class="score-label">CONVICTION SCORE</div>
+      </div>
+    </div>
+    <div id="aiOutputArea">
+      <div class="ai-output">
+        <p style="color:var(--muted);font-size:12px">Analysis will appear here. Enter a ticker in the sidebar and click "Run Full Analysis" to generate a structured research brief using the full framework.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: LIVE SCREENER -->
+  <div class="page" id="page-screener">
+    <div class="page-header">
+      <h2>Live Stock Screener</h2>
+      <p>AI-powered discovery — configure your filters, then let the research engine identify stocks that match the full framework: 5 Shifts + 3 Power Moves + 29-Point + Rule of 40.</p>
+    </div>
+
+    <!-- CONFIG PANEL -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="card" style="margin:0">
+        <div class="card-title">Risk Profiles <span style="font-size:9px;color:var(--green);background:rgba(76,175,138,0.15);border:1px solid rgba(76,175,138,0.3);padding:1px 6px;border-radius:99px;margin-left:4px">multi-select</span></div>
+        <div id="riskBtns" style="display:flex;flex-direction:column;gap:6px">
+          <button class="risk-opt active" data-val="aggressive" onclick="toggleRisk(this)">🔥 Aggressive — Growth/Speculative</button>
+          <button class="risk-opt active" data-val="balanced" onclick="toggleRisk(this)">⚖️ Balanced — Core + Thematic</button>
+          <button class="risk-opt active" data-val="conservative" onclick="toggleRisk(this)">🛡️ Conservative — Dividend + Defensive</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5">All three active = screener returns stocks across the full risk spectrum, grouped by bucket in results.</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-title">Candidate Count</div>
+        <div id="countBtns" style="display:flex;flex-direction:column;gap:6px">
+          <button class="risk-opt active" data-val="5" onclick="setCount(this)">5 stocks — Fast (recommended)</button>
+          <button class="risk-opt" data-val="8" onclick="setCount(this)">6 stocks — Standard</button>
+          <button class="risk-opt" data-val="12" onclick="setCount(this)">6 stocks — Deep research</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5">Use Fact-Check on each result to add live web data per stock.</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-title">Sector Focus</div>
+        <div id="sectorFocusBtns" style="display:flex;flex-direction:column;gap:6px">
+          <button class="risk-opt active" data-val="hot" onclick="setSectorFocus(this)">🔥 All hot sectors (current regime)</button>
+          <button class="risk-opt" data-val="industrials" onclick="setSectorFocus(this)">🏗️ Domestic industrials / defense</button>
+          <button class="risk-opt" data-val="ai" onclick="setSectorFocus(this)">🤖 AI deployment layer</button>
+          <button class="risk-opt" data-val="energy" onclick="setSectorFocus(this)">⚡ Energy / commodities</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVE SHIFTS REMINDER -->
+    <div id="screenerShiftBar" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:11px;color:var(--muted)">Active shifts from framework tab:</span>
+      <span id="screenerShiftTags" style="font-size:11px;color:var(--muted);font-style:italic">None selected — go to 5 Market Shifts tab to select active shifts</span>
+    </div>
+
+    <!-- RUN BUTTON -->
+    <button id="runScreenerBtn" onclick="runScreener()" style="width:100%;padding:14px;background:var(--accent);color:#0a0c0f;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:14px;cursor:pointer;margin-bottom:20px;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span>🔍</span> Find Stocks Matching Full Framework
+    </button>
+
+    <!-- SCREENER PIPELINE STATUS -->
+    <div id="screenerPipeline" style="display:none;margin-bottom:20px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Research Pipeline</div>
+        <div id="pipelineSteps"></div>
+      </div>
+    </div>
+
+    <!-- RESULTS AREA -->
+    <div id="screenerResults"></div>
+
+    <!-- DISCLAIMER -->
+    <div style="margin-top:16px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--text)">Research disclaimer:</strong> This screener uses AI-powered web research to identify and analyze stocks. Output is for educational purposes only and does not constitute financial advice. All investments involve risk including loss of principal. Always conduct your own due diligence before making investment decisions. Technical signals (heartbeat pattern, 50-DMA, volume) are AI-reasoned from recent news and data — not from live price feeds.
+    </div>
+  </div>
+
+  <!-- PAGE: PORTFOLIO -->
+  <div class="page" id="page-portfolio">
+    <div class="page-header">
+      <h2>My Portfolio</h2>
+      <p>Track all holdings with live P&L, apply the full framework to each position, and run AI analysis on any holding. Data pre-loaded from your screenshots — edit anytime.</p>
+    </div>
+
+    <!-- SUMMARY STATS -->
+    <div class="port-summary-grid" id="portSummaryGrid"></div>
+
+    <!-- TOOLBAR -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="edit-btn" onclick="addHolding()" style="padding:6px 14px;font-size:11px;border-color:rgba(240,192,64,0.4);color:var(--accent)">+ Add Holding</button>
+      <button class="edit-btn" onclick="analyzeFullPortfolio()" style="padding:6px 14px;font-size:11px;background:var(--accent);border-color:var(--accent);color:#0a0c0f;font-weight:600">🤖 AI Portfolio Analysis</button>
+      <button class="edit-btn" onclick="savePortfolio()" style="padding:6px 14px;font-size:11px">💾 Save Changes</button>
+      <div style="margin-left:auto;font-size:10px;color:var(--muted)" id="portSaveStatus"></div>
+    </div>
+
+    <!-- HOLDINGS TABLE -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="port-table" id="portTable">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Shares / Qty</th>
+            <th>Avg Cost</th>
+            <th>Current Price</th>
+            <th>Market Value</th>
+            <th>Total Return</th>
+            <th>Return %</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="portBody"></tbody>
+      </table>
+    </div>
+
+    <!-- AI ANALYSIS RESULTS -->
+    <div id="portAISection" style="display:none;margin-top:24px">
+      <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">AI Framework Analysis — Each Holding</div>
+      <div id="portAIResults"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: SETTINGS & LIVE DATA -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <h2>Settings & Live Data</h2>
+      <p>Running locally? You need both keys below. The <strong style="color:var(--purple)">Anthropic key</strong> powers all AI features (screener, analysis, fact-check). The <strong style="color:var(--accent)">Massive key</strong> powers live charts and price refresh. Both stored only in your browser.</p>
+    </div>
+
+    <!-- LOCAL MODE BANNER -->
+    <div id="localModeBanner" style="display:none;background:rgba(155,114,232,0.08);border:1px solid rgba(155,114,232,0.3);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:500;color:var(--purple);margin-bottom:6px">⚡ You are running locally — API keys required</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">Add your Anthropic API key below to enable all AI features. Get one free at <a href="https://console.anthropic.com/keys" target="_blank" style="color:var(--purple)">console.anthropic.com/keys</a> — the free tier includes enough calls to run the screener and analysis.</div>
+    </div>
+
+    <!-- ANTHROPIC API KEY -->
+    <div class="card" style="margin-bottom:16px;border-color:rgba(155,114,232,0.35)">
+      <div class="card-title">Anthropic API Key <span style="font-size:9px;color:var(--purple);background:rgba(155,114,232,0.15);border:1px solid rgba(155,114,232,0.3);padding:2px 7px;border-radius:99px;margin-left:6px">Required for AI features when running locally</span></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
+        <div style="flex:1">
+          <input type="password" id="anthropicKeyInput" placeholder="sk-ant-api03-…"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none">
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6">Get your key at <a href="https://console.anthropic.com/keys" target="_blank" style="color:var(--purple)">console.anthropic.com/keys</a> · Stored in localStorage only · Used only for AI Deep Dive, Screener, Fact-Check, and Portfolio Analysis calls</div>
+        </div>
+        <button onclick="saveAnthropicKey()" style="padding:10px 18px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">Save Key</button>
+      </div>
+      <div id="anthropicKeyStatus" style="font-size:12px;color:var(--muted)">No Anthropic key saved — AI features will only work inside claude.ai.</div>
+      <button onclick="testAnthropicKey()" style="margin-top:10px;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-family:'Sora',sans-serif;font-size:11px;cursor:pointer">🧪 Test API Connection</button>
+      <div id="anthropicTestResult" style="margin-top:8px;font-size:11px;font-family:'DM Mono',monospace;color:var(--muted)"></div>
+    </div>
+
+    <!-- API KEY PANEL -->
+    <div class="card" style="margin-bottom:16px;border-color:rgba(240,192,64,0.25)">
+      <div class="card-title">Massive.com API Key <span style="font-size:9px;color:var(--accent);background:rgba(240,192,64,0.12);border:1px solid rgba(240,192,64,0.2);padding:2px 7px;border-radius:99px;margin-left:6px">Required for live charts & prices</span></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
+        <div style="flex:1">
+          <input type="password" id="massiveKeyInput" placeholder="Paste your Massive.com API key here…"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none"
+            oninput="document.getElementById('massiveKeyInput').style.borderColor='var(--border2)'">
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6">Get your key at <a href="https://massive.com/dashboard/keys" target="_blank" style="color:var(--accent)">massive.com/dashboard/keys</a> · Stored in localStorage only · Never logged or transmitted to Claude</div>
+        </div>
+        <button onclick="saveMassiveKey()" style="padding:10px 18px;background:var(--accent);color:#0a0c0f;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">Save Key</button>
+      </div>
+      <div id="massiveKeyStatus" style="font-size:12px;color:var(--muted)">No key saved yet.</div>
+    </div>
+
+    <!-- FEATURE TILES -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px" id="featureTiles">
+      <div class="card" style="margin:0;opacity:0.5" id="tile-chart">
+        <div style="font-size:18px;margin-bottom:8px">📈</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Candlestick Charts</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">90-day OHLCV with 50-DMA overlay and volume bars. Auto-loads for any ticker you analyze.</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--accent)">Requires API key</div>
+      </div>
+      <div class="card" style="margin:0;opacity:0.5" id="tile-prices">
+        <div style="font-size:18px;margin-bottom:8px">⚡</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Live Portfolio Prices</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">One-click refresh pulls real current prices for all your holdings and recalculates P&L instantly.</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--accent)">Requires API key</div>
+      </div>
+      <div class="card" style="margin:0;opacity:0.5" id="tile-technicals">
+        <div style="font-size:18px;margin-bottom:8px">📊</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Technical Auto-Score</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">Auto-evaluates all 3 Power Moves (heartbeat, 50-DMA position, volume trend) for any ticker.</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--accent)">Requires API key</div>
+      </div>
+      <div class="card" style="margin:0;opacity:0.5" id="tile-quote">
+        <div style="font-size:18px;margin-bottom:8px">💹</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Real-Time Quote</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">Live bid/ask, last price, today's open/high/low/close and daily change for any ticker.</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--accent)">Requires API key</div>
+      </div>
+    </div>
+
+    <!-- TEST / QUICK QUOTE -->
+    <div class="card" id="testPanel" style="display:none">
+      <div class="card-title">Test Connection — Live Quote</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <input id="testTicker" class="ticker-input" placeholder="e.g. NVDA" maxlength="8" style="flex:1" onkeydown="if(event.key==='Enter')fetchQuote()">
+        <button onclick="fetchQuote()" style="padding:8px 16px;background:var(--accent);color:#0a0c0f;border:none;border-radius:7px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer">Get Quote</button>
+      </div>
+      <div id="quoteResult"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// PAGE NAVIGATION
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'screener') updateScreenerShiftBar();
+  if (id === 'portfolio') { loadPortfolio(); renderPortfolio(); }
+}
+
+// SHIFT SELECTION
+let activeShifts = new Set();
+function toggleShift(el, key) {
+  el.classList.toggle('selected');
+  if (activeShifts.has(key)) activeShifts.delete(key);
+  else activeShifts.add(key);
+  document.getElementById('activeShiftsDisplay').textContent = activeShifts.size;
+  document.getElementById('activeShiftNames').innerHTML = [...activeShifts].map(s => {
+    const labels = {wall:'Wall Street Shift',main:'Main Street Shift',innov:'Innovation Shift',broad:'Broad Market Shift',gov:'Government Shift'};
+    const colors = {wall:'var(--wall)',main:'var(--main)',innov:'var(--innov)',broad:'var(--broad)',gov:'var(--gov)'};
+    return `<span style="color:${colors[s]}">${labels[s]}</span>`;
+  }).join('<br>');
+}
+
+// SECTOR MAP
+const sectors = [
+  {name:'Technology',perf:'+1.2%',hot:false},
+  {name:'Industrials',perf:'+3.1%',hot:true},
+  {name:'Energy',perf:'+4.8%',hot:true},
+  {name:'Healthcare',perf:'+0.6%',hot:false},
+  {name:'Financials',perf:'+0.9%',hot:false},
+  {name:'Defense',perf:'+5.2%',hot:true},
+  {name:'Consumer Staples',perf:'+0.4%',hot:false},
+  {name:'Utilities',perf:'+1.8%',hot:false},
+  {name:'Materials',perf:'+2.4%',hot:true},
+  {name:'Real Estate',perf:'-0.8%',hot:false},
+  {name:'Comm Services',perf:'-1.1%',hot:false},
+  {name:'Consumer Disc.',perf:'-2.3%',hot:false},
+];
+const sm = document.getElementById('sectorMap');
+sectors.forEach(s => {
+  const t = document.createElement('div');
+  t.className = 'sector-tile' + (s.hot ? ' hot' : '');
+  t.innerHTML = `<div class="s-name">${s.name}</div><div class="s-perf ${s.perf.startsWith('+') ? 's-pos':'s-neg'}">${s.perf}</div>`;
+  t.onclick = () => t.classList.toggle('hot');
+  sm.appendChild(t);
+});
+
+// 29-POINT CHECKLIST
+const checklistData = [
+  { section: '1. Business Quality', items: [
+    {id:'bm', label:'Business model clarity', sub:'How does it make money? Is the model simple and durable?'},
+    {id:'is', label:'Industry structure & competitive dynamics', sub:'Fragmented vs consolidated? Growing or shrinking TAM?'},
+    {id:'moat', label:'Moat assessment', sub:'Brand, network effects, switching costs, cost advantage, IP?'},
+    {id:'dur', label:'10-year durability', sub:'Does the core value proposition survive a decade of disruption?'},
+  ]},
+  { section: '2. Management', items: [
+    {id:'own', label:'Founder/insider ownership', sub:'Skin in the game? Insider buying vs selling trends?'},
+    {id:'cult', label:'Culture & talent retention', sub:'Glassdoor, talent signals, key executive stability?'},
+    {id:'cap', label:'Capital allocation track record', sub:'ROE on M&A, buybacks at right prices, dividend discipline?'},
+    {id:'inc', label:'Incentive alignment', sub:'Are comp packages tied to ROIC and long-term value?'},
+  ]},
+  { section: '3. Financials', items: [
+    {id:'rev', label:'Revenue growth (3–5yr CAGR)', sub:'Organic vs acquired? Recurring vs transactional?'},
+    {id:'mar', label:'Margin trajectory', sub:'Gross, operating, and net margins expanding or compressing?'},
+    {id:'roic', label:'ROIC vs WACC spread', sub:'Is the business creating or destroying economic value?'},
+    {id:'bs', label:'Balance sheet health', sub:'Net debt/EBITDA, interest coverage, debt maturity profile?'},
+    {id:'fcf', label:'Free cash flow generation', sub:'FCF yield, FCF conversion from earnings, capex intensity?'},
+  ]},
+  { section: '4. AI & Cyclicality', items: [
+    {id:'ai', label:'AI exposure type', sub:'Enabler, beneficiary, or threatened? Infrastructure vs deployment layer?'},
+    {id:'bub', label:'AI bubble risk', sub:'Is valuation pricing in scenarios that require perfection?'},
+    {id:'cyc', label:'Cyclicality assessment', sub:'Early, mid, or late cycle? Revenue sensitivity to GDP?'},
+  ]},
+  { section: '5. Macro', items: [
+    {id:'geo', label:'Geopolitical risk', sub:'Supply chain exposure to tariff regimes, China, EM?'},
+    {id:'cho', label:'Supply chokepoints', sub:'Critical inputs subject to disruption or pricing power loss?'},
+    {id:'crow', label:'Crowded trade risk', sub:'Is positioning consensus? Hedge fund exposure high?'},
+    {id:'rec', label:'Recession resilience', sub:'Revenue sensitivity in a -20% GDP shock scenario?'},
+  ]},
+  { section: '6. Valuation', items: [
+    {id:'met', label:'Valuation metrics vs history & peers', sub:'P/E, EV/EBITDA, P/FCF vs 5yr history and sector comps?'},
+    {id:'mos', label:'Margin of safety', sub:'What drawdown is built in if thesis takes 2yrs longer?'},
+    {id:'qvs', label:'Quality vs story pricing', sub:'Are you paying for proven earnings or narrative?'},
+  ]},
+  { section: '7. Portfolio Fit', items: [
+    {id:'ovl', label:'Overlap check', sub:'Does it duplicate existing exposure (PLTR/NVDA/GOOGL)?'},
+    {id:'div', label:'Diversification contribution', sub:'Does it add a new risk factor or reduce concentration?'},
+    {id:'bkt', label:'Bucket assignment', sub:'Core / cyclical / thematic / speculative — correct bucket?'},
+  ]},
+  { section: '8. Kill-Switch', items: [
+    {id:'tr', label:'Primary thesis risks', sub:'Top 3 scenarios that would invalidate the investment case?'},
+    {id:'mon', label:'Metrics to monitor', sub:'Quarterly KPIs, management signals, technical levels to watch?'},
+    {id:'dd', label:'Drawdown behavior expectation', sub:'How does it perform in a broad market down 30%?'},
+  ]},
+];
+
+let checked = new Set();
+const container = document.getElementById('checklistContainer');
+checklistData.forEach(section => {
+  const sec = document.createElement('div');
+  sec.className = 'checklist-section';
+  sec.innerHTML = `<h3>${section.section}</h3>`;
+  section.items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'check-item';
+    row.innerHTML = `<div class="check-box" id="box-${item.id}"></div><div class="check-label">${item.label}<br><span class="check-sub">${item.sub}</span></div>`;
+    row.onclick = () => {
+      if (checked.has(item.id)) { checked.delete(item.id); document.getElementById('box-'+item.id).classList.remove('checked'); }
+      else { checked.add(item.id); document.getElementById('box-'+item.id).classList.add('checked'); }
+      updateProgress();
+    };
+    sec.appendChild(row);
+  });
+  container.appendChild(sec);
+});
+
+function updateProgress() {
+  const total = 29;
+  const done = checked.size;
+  const pct = Math.round((done/total)*100);
+  document.getElementById('checkProgress').style.width = pct + '%';
+  document.getElementById('checkCount').textContent = done + ' / ' + total;
+}
+
+// AI ANALYSIS
+async function startAnalysis() {
+  const ticker = document.getElementById('tickerInput').value.toUpperCase().trim();
+  if (!ticker) return;
+  const btn = document.getElementById('analyzeBtn');
+
+  // Key check for local
+  const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+  if (isLocal && !getAnthropicKey()) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-aipage').classList.add('active');
+    document.getElementById('aiOutputArea').innerHTML = `<div class="ai-output">
+      <div style="font-size:13px;color:var(--text);margin-bottom:8px">🔑 Anthropic API key required</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px">Go to <strong style="color:var(--purple)">Settings & Data</strong> in the left nav and add your Anthropic API key to enable AI analysis locally.</div>
+      <a href="https://console.anthropic.com/keys" target="_blank" style="padding:7px 14px;background:var(--purple);color:#fff;border:none;border-radius:7px;font-size:12px;text-decoration:none;display:inline-block">Get API Key at console.anthropic.com ↗</a>
+    </div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  showPage('aipage');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('heroTicker').textContent = ticker;
+  document.getElementById('heroSubtext').textContent = 'Running 5 Shifts + 3 Power Moves + 29-Point Analysis...';
+  document.getElementById('heroScore').textContent = '—';
+  document.getElementById('heroScore').style.color = 'var(--muted)';
+
+  const activeShiftList = [...activeShifts].map(s => ({
+    wall: 'Wall Street Shift', main: 'Main Street Shift', innov: 'Innovation Shift',
+    broad: 'Broad Market Shift', gov: 'Government Shift'
+  })[s]).join(', ') || 'None explicitly selected';
+
+  document.getElementById('aiOutputArea').innerHTML = `
+    <div class="ai-output">
+      <div class="ai-thinking">
+        <span>Analyzing ${ticker} across full framework</span>
+        <div class="dot-pulse"><span></span><span></span><span></span></div>
+      </div>
+    </div>`;
+
+  const prompt = `You are a world-class institutional equity analyst. Analyze the stock ${ticker} using this exact multi-layer framework. Be specific, data-driven, and direct. Do not hedge excessively.
+
+ACTIVE MARKET SHIFTS IDENTIFIED: ${activeShiftList}
+
+FRAMEWORK TO APPLY:
+
+## STEP 1: GOAT ACADEMY — 5 MARKET SHIFT ASSESSMENT
+For each shift type, assess whether ${ticker} is a BENEFICIARY, NEUTRAL, or HEADWIND:
+- Wall Street Shift (institutional capital flows)
+- Main Street Shift (consumer/business spending)
+- Innovation Shift (technology disruption)
+- Broad Market Shift (macro/rates/tariffs)
+- Government Shift (regulation/policy/subsidies)
+
+## STEP 2: GOAT ACADEMY — 3 POWER MOVES (technical)
+1. Heartbeat Pattern: Is the chart showing higher highs and higher lows?
+2. 50-Day Moving Average: Is price above/below 50-DMA? Slope direction?
+3. Volume = Power: Is institutional accumulation or distribution visible?
+
+## STEP 3: 29-POINT CHECKLIST SUMMARY
+Rate each section HIGH/MED/LOW confidence:
+(1) Business Quality — moat, model clarity, 10yr durability
+(2) Management — ownership, culture, capital allocation
+(3) Financials — revenue growth, margins, ROIC, FCF
+(4) AI & Cyclicality — AI exposure type, bubble risk
+(5) Macro — tariff/geopolitical exposure, recession resilience
+(6) Valuation — P/E vs history, margin of safety
+(7) Portfolio Fit — for a portfolio holding PLTR, GOOGL, AMZN, NVDA, SCHD, ASTS, GRAB, AMKR, SNDK, BTC, SOL, gold, silver (~$25K total)
+(8) Kill-Switch — top 3 thesis risks, metrics to monitor
+
+## STEP 4: 20/30/40 RULES APPLICATION
+- Rule of 40 score (if tech/SaaS): Revenue Growth% + Profit Margin% = ? (≥40 required to buy)
+- Profit-taking plan: At what price does +40% trigger first 20% trim? What is that price?
+- Stop-loss level: 20% below current price = ?
+- 2% portfolio rule check: on a $25,370 portfolio, max loss = $507. What position size keeps this rule intact?
+
+## STEP 5: FINAL VERDICT
+- Overall conviction score: X/10
+- Bucket: Core / Cyclical / Thematic / Speculative
+- Max position size %: (must be consistent with <5% speculative, 5-10% standard, 10-15% core)
+- Key winner scenario (2yr horizon)
+- Key loser / kill-switch scenario
+- One-line action recommendation
+
+Format clearly with headers. Be concise but rigorous.`;
+
+  try {
+    const response = await apiFetch({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+
+    // Extract all text content
+    const textBlocks = data.content ? data.content.filter(b => b.type === 'text').map(b => b.text).join('\n') : '';
+
+    // Parse conviction score
+    const scoreMatch = textBlocks.match(/conviction score[:\s]+(\d+)/i);
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+
+    if (score !== null) {
+      document.getElementById('heroScore').textContent = score + '/10';
+      document.getElementById('heroScore').style.color = score >= 7 ? 'var(--green)' : score >= 5 ? 'var(--accent)' : 'var(--red)';
+    }
+
+    // Render the analysis with markdown-like formatting
+    const formatted = textBlocks
+      .replace(/^## (.+)$/gm, '<h3 style="color:var(--accent);font-size:13px;letter-spacing:0.08em;text-transform:uppercase;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">$1</h3>')
+      .replace(/^### (.+)$/gm, '<h4 style="color:var(--blue);font-size:12px;margin:10px 0 5px">$1</h4>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text)">$1</strong>')
+      .replace(/^- (.+)$/gm, '<div style="padding:3px 0 3px 14px;position:relative;font-size:12px;color:var(--muted)"><span style="position:absolute;left:0;color:var(--accent)">→</span>$1</div>')
+      .replace(/\n{2,}/g, '<br><br>');
+
+    document.getElementById('heroSubtext').textContent = 'Analysis complete — ' + new Date().toLocaleTimeString();
+    document.getElementById('aiOutputArea').innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="factCheckDeepDive('${ticker}', \`${textBlocks.slice(0,800).replace(/`/g,"'").replace(/\n/g,' ')}\`)"
+          style="padding:6px 16px;background:rgba(155,114,232,0.12);border:1px solid rgba(155,114,232,0.35);border-radius:7px;color:var(--purple);font-family:'Sora',sans-serif;font-size:11px;font-weight:600;cursor:pointer">
+          🔍 Fact-Check This Analysis
+        </button>
+        <a href="https://finviz.com/quote.ashx?t=${ticker}" target="_blank" style="padding:6px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:11px;text-decoration:none">FINVIZ Chart ↗</a>
+        <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=10-K&dateb=&owner=include&count=5" target="_blank" style="padding:6px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:11px;text-decoration:none">SEC Filings ↗</a>
+        <a href="https://finance.yahoo.com/quote/${ticker}" target="_blank" style="padding:6px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:11px;text-decoration:none">Yahoo Finance ↗</a>
+      </div>
+      <div id="deepDiveFactCheck" style="margin-bottom:10px"></div>
+      <div class="ai-output"><p style="font-size:13px;line-height:1.8">${formatted}</p></div>`;
+  } catch(err) {
+    document.getElementById('aiOutputArea').innerHTML = `<div class="ai-output"><p style="color:var(--red)">Analysis failed: ${err.message}. Check your API connection and try again.</p></div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run Full Analysis';
+}
+
+document.getElementById('tickerInput').addEventListener('keydown', e => { if(e.key === 'Enter') startAnalysis(); });
+
+// ─── PORTFOLIO TRACKER ────────────────────────────────────────────────────────
+const DEFAULT_HOLDINGS = [
+  // Stocks (from screenshots)
+  {id:'PLTR', name:'Palantir Technologies', type:'Stock',   qty:15.399,  avgCost:21.28,  price:151.52, bucket:'Speculative'},
+  {id:'SNDK', name:'Sandisk Corporation',   type:'Stock',   qty:2.26,    avgCost:221.24, price:709.13, bucket:'Speculative'},
+  {id:'GOOGL',name:'Alphabet Class A',      type:'Stock',   qty:8.11,    avgCost:197.92, price:304.50, bucket:'Core'},
+  {id:'ENS',  name:'EnerSys',               type:'Stock',   qty:9.988,   avgCost:121.30, price:164.05, bucket:'Thematic'},
+  {id:'NVDA', name:'NVIDIA',                type:'Stock',   qty:7.614,   avgCost:134.91, price:178.25, bucket:'Core'},
+  {id:'SCHD', name:'Schwab US Dividend ETF',type:'ETF',     qty:85.313,  avgCost:27.42,  price:30.50,  bucket:'Core'},
+  {id:'AMZN', name:'Amazon',                type:'Stock',   qty:9.296,   avgCost:216.22, price:207.37, bucket:'Core'},
+  {id:'GRAB', name:'Grab Holdings',         type:'Stock',   qty:963.479, avgCost:5.37,   price:3.71,   bucket:'Speculative'},
+  {id:'AMKR', name:'Amkor Technology',      type:'Stock',   qty:52.867,  avgCost:31.15,  price:45.02,  bucket:'Cyclical'},
+  {id:'ASTS', name:'AST SpaceMobile',       type:'Stock',   qty:12.979,  avgCost:33.13,  price:88.38,  bucket:'Speculative'},
+  {id:'SYNA', name:'Synaptics',             type:'Stock',   qty:6.506,   avgCost:90.99,  price:71.00,  bucket:'Cyclical'},
+  // Crypto
+  {id:'SOL',  name:'Solana',                type:'Crypto',  qty:0.02212, avgCost:123.87, price:87.98,  bucket:'Speculative'},
+  {id:'BTC',  name:'Bitcoin (spot)',         type:'Crypto',  qty:0.00007086,avgCost:88343.21,price:69280.46,bucket:'Speculative'},
+  {id:'BTC-F',name:'BTC Futures (leveraged)',type:'Futures', qty:0.01779462,avgCost:79055.15,price:69280.46,bucket:'Speculative'},
+  // Precious metals
+  {id:'GOLD', name:'Gold (Royal Canadian Mint)',type:'Metal',qty:0.557613,avgCost:4565,  price:4565,   bucket:'Core'},
+  {id:'SLVR', name:'Silver (HSBC)',           type:'Metal',  qty:1.029358,avgCost:67.90, price:67.90,  bucket:'Core'},
+  // Cash
+  {id:'CASH', name:'Cash',                   type:'Cash',    qty:1,       avgCost:19.08, price:19.08,  bucket:'Cash'},
+];
+
+let portfolio = [];
+
+function loadPortfolio() {
+  try {
+    const saved = localStorage.getItem('msa_portfolio');
+    portfolio = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_HOLDINGS));
+  } catch(e) { portfolio = JSON.parse(JSON.stringify(DEFAULT_HOLDINGS)); }
+}
+
+function savePortfolio() {
+  localStorage.setItem('msa_portfolio', JSON.stringify(portfolio));
+  const s = document.getElementById('portSaveStatus');
+  if (s) { s.textContent = '✓ Saved ' + new Date().toLocaleTimeString(); s.style.color = 'var(--green)'; }
+}
+
+function fmt(n, decimals=2) { return isNaN(n) ? '—' : '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}); }
+function fmtPct(n) { return isNaN(n) ? '—' : (n>=0?'+':'')+n.toFixed(2)+'%'; }
+
+function calcRow(h) {
+  const mv = h.qty * h.price;
+  const cost = h.qty * h.avgCost;
+  const ret = mv - cost;
+  const retPct = cost > 0 ? (ret/cost)*100 : 0;
+  return {mv, cost, ret, retPct};
+}
+
+function renderPortfolio() {
+  if (!portfolio.length) loadPortfolio();
+  const tbody = document.getElementById('portBody');
+  if (!tbody) return;
+
+  // Summary stats
+  let totalMV = 0, totalCost = 0, totalRet = 0;
+  portfolio.forEach(h => { const c = calcRow(h); totalMV += c.mv; totalCost += c.cost; totalRet += c.ret; });
+  const totalRetPct = totalCost > 0 ? (totalRet/totalCost)*100 : 0;
+
+  const grid = document.getElementById('portSummaryGrid');
+  if (grid) {
+    const statColor = totalRet >= 0 ? 'var(--green)' : 'var(--red)';
+    grid.innerHTML = [
+      {l:'Total Value', v: fmt(totalMV,0), c:'var(--accent)'},
+      {l:'Total Cost',  v: fmt(totalCost,0), c:'var(--muted)'},
+      {l:'Total Return', v:(totalRet>=0?'+':'')+fmt(totalRet,0), c:statColor},
+      {l:'Return %', v:fmtPct(totalRetPct), c:statColor},
+      {l:'# Holdings', v:portfolio.filter(h=>h.type!=='Cash').length, c:'var(--blue)'},
+    ].map(s=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:${s.c}">${s.v}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:0.06em;text-transform:uppercase">${s.l}</div>
+    </div>`).join('');
+  }
+
+  // Group by type
+  const typeOrder = ['Stock','ETF','Crypto','Futures','Metal','Cash'];
+  const grouped = {};
+  typeOrder.forEach(t => { grouped[t] = portfolio.filter(h => h.type === t); });
+
+  tbody.innerHTML = '';
+  typeOrder.forEach(type => {
+    const rows = grouped[type];
+    if (!rows.length) return;
+    // Section header row
+    const hdr = document.createElement('tr');
+    hdr.innerHTML = `<td colspan="10" class="port-section-header">${type}s</td>`;
+    tbody.appendChild(hdr);
+
+    rows.forEach((h, gi) => {
+      const idx = portfolio.indexOf(h);
+      const {mv, ret, retPct} = calcRow(h);
+      const retCls = ret >= 0 ? 'port-pos' : 'port-neg';
+      const stopPrice = h.price * 0.8;
+      const trimPrice = h.price * 1.4;
+
+      const tr = document.createElement('tr');
+      tr.id = `port-row-${idx}`;
+      tr.innerHTML = `
+        <td><div class="port-ticker">${h.id}</div></td>
+        <td><div style="font-size:12px">${h.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${h.bucket}</div></td>
+        <td><span style="font-size:10px;padding:2px 7px;border-radius:99px;background:var(--bg3);color:var(--muted)">${h.type}</span></td>
+        <td><input class="port-input" style="width:100px" value="${h.qty}" onchange="updateField(${idx},'qty',parseFloat(this.value)||0);renderPortfolio()"></td>
+        <td><input class="port-input" value="${h.avgCost}" onchange="updateField(${idx},'avgCost',parseFloat(this.value)||0);renderPortfolio()"></td>
+        <td><input class="port-input" value="${h.price}" onchange="updateField(${idx},'price',parseFloat(this.value)||0);renderPortfolio()"></td>
+        <td><div style="font-family:'DM Mono',monospace;font-size:12px">${fmt(mv)}</div></td>
+        <td><div class="port-${ret>=0?'pos':'neg'}" style="font-family:'DM Mono',monospace;font-size:12px">${ret>=0?'+':''}${fmt(ret)}</div></td>
+        <td><div class="${retCls}" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500">${fmtPct(retPct)}</div></td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="edit-btn" onclick="analyzeHolding('${h.id}','${h.name}')">Analyze</button>
+            <button class="edit-btn del" onclick="removeHolding(${idx})">✕</button>
+          </div>
+          <div style="margin-top:4px;font-size:9px;color:var(--muted)">
+            Stop: <span style="color:var(--red);font-family:'DM Mono',monospace">${fmt(stopPrice)}</span>
+            &nbsp;Trim: <span style="color:var(--green);font-family:'DM Mono',monospace">${fmt(trimPrice)}</span>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+function updateField(idx, field, val) {
+  if (portfolio[idx]) portfolio[idx][field] = val;
+}
+
+function removeHolding(idx) {
+  if (!confirm(`Remove ${portfolio[idx].id}?`)) return;
+  portfolio.splice(idx, 1);
+  renderPortfolio();
+  savePortfolio();
+}
+
+function addHolding() {
+  portfolio.push({id:'NEW',name:'New Position',type:'Stock',qty:0,avgCost:0,price:0,bucket:'Speculative'});
+  renderPortfolio();
+  savePortfolio();
+}
+
+async function analyzeHolding(ticker, name) {
+  const section = document.getElementById('portAISection');
+  const results = document.getElementById('portAIResults');
+  section.style.display = 'block';
+  results.innerHTML = `<div class="port-ai-card"><div class="port-ai-ticker">${ticker}</div>
+    <div class="ai-thinking" style="margin-top:8px"><span style="font-size:12px;color:var(--muted)">Running framework analysis…</span>
+    <div class="dot-pulse"><span></span><span></span><span></span></div></div></div>`;
+  section.scrollIntoView({behavior:'smooth'});
+
+  const holding = portfolio.find(h => h.id === ticker);
+  const {mv, ret, retPct} = holding ? calcRow(holding) : {mv:0,ret:0,retPct:0};
+  const portContext = portfolio.filter(h=>h.type!=='Cash').map(h=>`${h.id}(${h.bucket})`).join(', ');
+
+  const prompt = `Financial research assistant helping an investor review their holding for educational purposes.
+
+Holding: ${ticker} — ${name}
+Current position: ${holding ? `${holding.qty} units @ avg cost $${holding.avgCost}, current price $${holding.price}, market value $${fmt(mv).replace('$','')}, return ${fmtPct(retPct)}` : 'see portfolio'}
+Bucket classification: ${holding?.bucket || 'Unknown'}
+Full portfolio: ${portContext}
+
+Apply this educational framework to ${ticker}:
+1. MARKET SHIFTS: Which of the 5 shifts (Wall Street/institutional, Main Street/consumer, Innovation/tech, Broad Market/macro, Government/policy) currently benefit or threaten this position?
+2. POWER MOVES: Based on recent price action and news, does it show (a) heartbeat momentum, (b) above 50-DMA, (c) institutional volume support?
+3. 29-POINT QUICK SCAN: Rate Business Quality, Financials, Macro resilience, Valuation as HIGH/MED/LOW
+4. 20/30/40 RULES: Rule of 40 score if applicable. At current price, 20% stop = $${(holding?.price*0.8||0).toFixed(2)}, first +40% trim target = $${(holding?.price*1.4||0).toFixed(2)}
+5. VERDICT: Hold / Add / Trim / Exit? Given the current return of ${fmtPct(retPct)}, what action fits the framework?
+
+Keep it concise — 5 numbered sections, 2-3 sentences each. No disclaimers.`;
+
+  try {
+    const resp = await apiFetch({
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]})
+    });
+    const data = await resp.json();
+    const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const formatted = text
+      .replace(/^## (.+)$/gm,'<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin:10px 0 4px">$1</div>')
+      .replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--text)">$1</strong>')
+      .replace(/^(\d+\..+)$/gm,'<div style="font-size:12px;font-weight:500;color:var(--text);margin:8px 0 2px">$1</div>')
+      .replace(/\n/g,'<br>');
+    results.innerHTML = `<div class="port-ai-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="port-ai-ticker">${ticker}</div>
+        <div style="font-size:11px;color:var(--muted)">${name}</div>
+        <div style="margin-left:auto;font-size:10px;color:var(--muted)">${new Date().toLocaleTimeString()}</div>
+      </div>
+      <div style="font-size:12px;line-height:1.7;color:var(--muted)">${formatted}</div>
+    </div>`;
+  } catch(e) {
+    results.innerHTML = `<div class="port-ai-card"><p style="color:var(--red);font-size:12px">Analysis failed: ${e.message}</p></div>`;
+  }
+}
+
+async function analyzeFullPortfolio() {
+  const section = document.getElementById('portAISection');
+  const results = document.getElementById('portAIResults');
+  section.style.display = 'block';
+  section.scrollIntoView({behavior:'smooth'});
+
+  let totalMV=0, totalCost=0, totalRet=0;
+  portfolio.forEach(h=>{const c=calcRow(h);totalMV+=c.mv;totalCost+=c.cost;totalRet+=c.ret;});
+  const retPct = totalCost>0?(totalRet/totalCost)*100:0;
+
+  const holdings = portfolio.filter(h=>h.type!=='Cash').map(h=>{
+    const {mv,ret,retPct}=calcRow(h);
+    return `${h.id}(${h.type},${h.bucket},${fmtPct(retPct)})`;
+  }).join(', ');
+
+  results.innerHTML = `<div class="port-ai-card"><div class="ai-thinking">
+    <span style="font-size:12px;color:var(--muted)">Analyzing full portfolio of ${portfolio.filter(h=>h.type!=='Cash').length} positions…</span>
+    <div class="dot-pulse"><span></span><span></span><span></span></div></div></div>`;
+
+  const prompt = `Financial research assistant doing an educational portfolio review.
+
+PORTFOLIO SNAPSHOT:
+Total value: ${fmt(totalMV,0)} | Total return: ${fmtPct(retPct)} | Holdings: ${portfolio.filter(h=>h.type!=='Cash').length}
+Positions: ${holdings}
+
+Current market regime (March 2026): Bridge tariffs 15%, oil $110-120/bbl, Russell 2000 > Nasdaq, AI rotating to deployment layer, Fed uncertainty.
+
+Provide an educational portfolio review covering:
+
+## CONCENTRATION & DIVERSIFICATION
+How many holdings? Any dangerous concentration? Closet-indexing risk? (20-stock rule: at ${portfolio.filter(h=>h.type!=='Cash').length} positions, are we in the sweet spot?)
+
+## REGIME ALIGNMENT (5 MARKET SHIFTS)
+Which positions are best/worst aligned with the current Government + Innovation + Broad Market shifts? Name specific tickers.
+
+## TOP 3 WINNERS — HOLD OR TRIM?
+For the top performers, apply the 20/30/40 profit-taking rule. Should any trigger a 20% trim (first +40% rule)?
+
+## TOP 3 CONCERNS — HOLD OR CUT?
+Which positions are most exposed to current headwinds? Any approaching or past 20% stop-loss level?
+
+## PORTFOLIO ACTION PLAN
+3 specific actions ranked by priority. Be direct — name tickers and actions.
+
+Keep each section to 3-4 sentences. No excessive disclaimers.`;
+
+  try {
+    const resp = await apiFetch({
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]})
+    });
+    const data = await resp.json();
+    const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const formatted = text
+      .replace(/^## (.+)$/gm,'<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin:12px 0 5px;padding-top:10px;border-top:1px solid var(--border)">$1</div>')
+      .replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--text)">$1</strong>')
+      .replace(/\n/g,'<br>');
+    results.innerHTML = `<div class="port-ai-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent)">Full Portfolio Analysis</div>
+        <div style="margin-left:auto;font-size:10px;color:var(--muted)">${new Date().toLocaleTimeString()}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:var(--bg3);border-radius:7px;padding:8px 10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:16px;color:var(--accent)">${fmt(totalMV,0)}</div>
+          <div style="font-size:9px;color:var(--muted)">TOTAL VALUE</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:7px;padding:8px 10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:16px;color:${totalRet>=0?'var(--green)':'var(--red)'}">${totalRet>=0?'+':''}${fmt(totalRet,0)}</div>
+          <div style="font-size:9px;color:var(--muted)">TOTAL RETURN</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:7px;padding:8px 10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:16px;color:${retPct>=0?'var(--green)':'var(--red)'}">${fmtPct(retPct)}</div>
+          <div style="font-size:9px;color:var(--muted)">RETURN %</div>
+        </div>
+      </div>
+      <div style="font-size:12px;line-height:1.8;color:var(--muted)">${formatted}</div>
+    </div>`;
+  } catch(e) {
+    results.innerHTML = `<div class="port-ai-card"><p style="color:var(--red);font-size:12px">Analysis failed: ${e.message}</p></div>`;
+  }
+}
+
+// Init portfolio on load
+loadPortfolio();
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('portBody')) renderPortfolio();
+});
+setTimeout(() => { if (document.getElementById('portBody')) renderPortfolio(); }, 100);
+
+// SELL LADDER
+function buildSellLadder() {
+  const el = document.getElementById('sellLadder');
+  if (!el) return;
+  const steps = [
+    { label: 'Entry', shares: 100, price: 100, note: 'Buy 100 shares @ $100. Total invested: $10,000.' },
+    { label: '+40% — First trim', shares: 80, price: 140, note: 'Sell 20 shares @ $140 → $2,800 locked in. 80 shares remain.' },
+    { label: '+40% again — Second trim', shares: 64, price: 196, note: 'Sell 16 shares @ $196 → $3,136 locked in. 64 shares remain.' },
+    { label: 'Runner still working', shares: 64, price: 196, note: '64 shares × $196 = $12,544 still running. ~60% of cost returned, ~125% of original value still in play.' },
+  ];
+  const colors = ['var(--muted)','var(--accent)','var(--accent)','var(--green)'];
+  el.innerHTML = steps.map((s,i) => `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:${i<steps.length-1?'1px solid var(--border)':'none'}">
+      <div style="width:26px;height:26px;border-radius:50%;background:${colors[i]};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#0a0c0f;flex-shrink:0;margin-top:1px">${i+1}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px">${s.label}</div>
+        <div style="font-size:11px;color:var(--muted)">${s.note}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${colors[i]}">$${(s.shares*s.price).toLocaleString()}</div>
+        <div style="font-size:10px;color:var(--muted)">${s.shares} shares remain</div>
+      </div>
+    </div>`).join('');
+}
+buildSellLadder();
+
+// RULE OF 40 CALCULATOR
+function calcR40() {
+  const g = parseInt(document.getElementById('growthSlider').value);
+  const m = parseInt(document.getElementById('marginSlider').value);
+  const score = g + m;
+  document.getElementById('growthVal').textContent = g + '%';
+  document.getElementById('marginVal').textContent = m + '%';
+  document.getElementById('r40Score').textContent = score;
+  const pct = Math.min(100, Math.max(0, score));
+  document.getElementById('r40Bar').style.width = pct + '%';
+  document.getElementById('r40Bar').style.background = score >= 40 ? 'linear-gradient(90deg,var(--green),var(--accent))' : 'linear-gradient(90deg,var(--red),var(--accent2))';
+  document.getElementById('r40Score').style.color = score >= 40 ? 'var(--green)' : score >= 30 ? 'var(--accent)' : 'var(--red)';
+  const v = document.getElementById('r40Verdict');
+  if (score >= 60) { v.textContent = 'Elite ≥60 — Strong Buy signal'; v.style.color = 'var(--green)'; }
+  else if (score >= 40) { v.textContent = 'Passes Rule of 40 ✓'; v.style.color = 'var(--green)'; }
+  else if (score >= 30) { v.textContent = 'Borderline — Watch margin expansion'; v.style.color = 'var(--accent)'; }
+  else { v.textContent = 'Below 40 — Avoid or wait'; v.style.color = 'var(--red)'; }
+}
+calcR40();
+
+// ─── LIVE SCREENER ────────────────────────────────────────────────────────────
+let screenerRisks = new Set(['aggressive','balanced','conservative']); // all on by default
+let screenerCount = '12';  // default 12-15
+let screenerSectorFocus = 'hot';
+
+function toggleRisk(btn) {
+  const val = btn.dataset.val;
+  if (screenerRisks.has(val) && screenerRisks.size > 1) {
+    screenerRisks.delete(val);
+    btn.classList.remove('active');
+  } else {
+    screenerRisks.add(val);
+    btn.classList.add('active');
+  }
+}
+function setCount(btn) {
+  document.querySelectorAll('#countBtns .risk-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  screenerCount = btn.dataset.val;
+}
+function setSectorFocus(btn) {
+  document.querySelectorAll('#sectorFocusBtns .risk-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  screenerSectorFocus = btn.dataset.val;
+}
+
+// Update shift tags on screener page whenever user visits
+function updateScreenerShiftBar() {
+  const tags = document.getElementById('screenerShiftTags');
+  if (!tags) return;
+  const labelMap = {wall:'Wall Street',main:'Main Street',innov:'Innovation',broad:'Broad Market',gov:'Government'};
+  const colorMap = {wall:'var(--wall)',main:'var(--main)',innov:'var(--innov)',broad:'var(--broad)',gov:'var(--gov)'};
+  if (activeShifts.size === 0) {
+    tags.innerHTML = '<em>None selected — go to 5 Market Shifts tab to activate shifts</em>';
+  } else {
+    tags.innerHTML = [...activeShifts].map(s =>
+      `<span style="background:rgba(255,255,255,0.06);border:1px solid ${colorMap[s]};color:${colorMap[s]};padding:2px 9px;border-radius:99px;font-size:10px;margin-right:4px">${labelMap[s]}</span>`
+    ).join('');
+  }
+}
+
+// Pipeline step manager
+const pipelineConfig = [
+  { id: 'p1', label: 'Identifying hot sectors via institutional flow analysis' },
+  { id: 'p2', label: 'Generating candidate stocks per sector based on profile' },
+  { id: 'p3', label: 'Applying 5 Market Shifts filter to each candidate' },
+  { id: 'p4', label: 'Evaluating 3 Power Moves (heartbeat, 50-DMA, volume)' },
+  { id: 'p5', label: 'Running 29-Point checklist assessment per stock' },
+  { id: 'p6', label: 'Applying Rule of 40 to tech/SaaS candidates' },
+  { id: 'p7', label: 'Ranking by conviction score & generating trade plans' },
+];
+
+function renderPipeline(activeIdx) {
+  const container = document.getElementById('pipelineSteps');
+  container.innerHTML = pipelineConfig.map((step, i) => {
+    let cls = 'pipe-pending', icon = '○';
+    if (i < activeIdx) { cls = 'pipe-done'; icon = '✓'; }
+    else if (i === activeIdx) { cls = 'pipe-running'; icon = '◉'; }
+    return `<div class="pipeline-step">
+      <div class="pipe-icon ${cls}">${icon}</div>
+      <div style="font-size:12px;color:${i < activeIdx ? 'var(--green)' : i === activeIdx ? 'var(--accent)' : 'var(--muted)'}">${step.label}</div>
+      ${i < activeIdx ? '<div style="margin-left:auto;font-size:10px;color:var(--green)">done</div>' : ''}
+      ${i === activeIdx ? '<div style="margin-left:auto;font-size:10px;color:var(--accent)">running…</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function deepDiveFromScreener(ticker) {
+  document.getElementById('tickerInput').value = ticker;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-aipage').classList.add('active');
+  startAnalysis();
+}
+
+function addToWatchlist(ticker, btn) {
+  try {
+    let wl = JSON.parse(localStorage.getItem('msa_watchlist') || '[]');
+    if (!wl.includes(ticker)) { wl.push(ticker); localStorage.setItem('msa_watchlist', JSON.stringify(wl)); }
+  } catch(e) {}
+  btn.textContent = '✓ Added';
+  btn.style.color = 'var(--green)';
+  btn.style.borderColor = 'var(--green)';
+}
+
+function copyTicker(ticker, btn) {
+  navigator.clipboard.writeText(ticker).catch(() => {});
+  btn.textContent = '✓ Copied';
+  setTimeout(() => { btn.textContent = 'Copy ticker'; }, 1500);
+}
+
+function scoreColor(s) {
+  if (s >= 8) return 'var(--green)';
+  if (s >= 6) return 'var(--accent)';
+  return 'var(--red)';
+}
+function verdictClass(v) {
+  const vl = (v||'').toLowerCase();
+  if (vl.includes('buy') || vl.includes('strong')) return 'verdict-buy';
+  if (vl.includes('watch') || vl.includes('hold')) return 'verdict-watch';
+  return 'verdict-avoid';
+}
+
+function renderStockCard(stock, idx) {
+  const sc = parseInt(stock.score) || 5;
+  const vClass = verdictClass(stock.verdict);
+  const stopPrice = stock.currentPrice ? `$${(stock.currentPrice * 0.8).toFixed(2)}` : 'N/A';
+  const trim1Price = stock.currentPrice ? `$${(stock.currentPrice * 1.4).toFixed(2)}` : 'N/A';
+  const tierColors = { aggressive:'var(--red)', balanced:'var(--accent)', conservative:'var(--blue)' };
+  const tierColor = tierColors[stock.riskTier] || 'var(--muted)';
+  const tierLabel = stock.riskTier ? stock.riskTier.charAt(0).toUpperCase() + stock.riskTier.slice(1) : '';
+  return `
+  <div class="stock-result-card" id="src-${idx}">
+    <div class="src-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em">CANDIDATE #${idx+1}</div>
+          ${tierLabel ? `<span style="font-size:9px;padding:1px 7px;border-radius:99px;border:1px solid ${tierColor};color:${tierColor};font-weight:600">${tierLabel}</span>` : ''}
+        </div>
+        <div class="src-ticker">${stock.ticker || '—'}</div>
+        <div class="src-name">${stock.name || ''} · ${stock.sector || ''}</div>
+      </div>
+      <div class="src-score">
+        <div class="src-score-num" style="color:${scoreColor(sc)}">${sc}/10</div>
+        <div class="src-score-label">Conviction</div>
+      </div>
+    </div>
+    <span class="src-verdict-badge ${vClass}">${stock.verdict || 'Watchlist'}</span>
+    <div class="src-grid">
+      <div class="src-cell">
+        <div class="src-cell-label">Bucket</div>
+        <div class="src-cell-val">${stock.bucket || '—'}</div>
+      </div>
+      <div class="src-cell">
+        <div class="src-cell-label">Max Position</div>
+        <div class="src-cell-val">${stock.maxPosition || '—'}</div>
+      </div>
+      <div class="src-cell">
+        <div class="src-cell-label">Rule of 40</div>
+        <div class="src-cell-val" style="color:${(parseInt(stock.ruleOf40)||0)>=40?'var(--green)':'var(--accent)'}">${stock.ruleOf40 || 'N/A'}</div>
+      </div>
+      <div class="src-cell">
+        <div class="src-cell-label">Primary Shift</div>
+        <div class="src-cell-val">${stock.primaryShift || '—'}</div>
+      </div>
+      <div class="src-cell">
+        <div class="src-cell-label">20% Stop-Loss</div>
+        <div class="src-cell-val" style="color:var(--red)">${stopPrice}</div>
+      </div>
+      <div class="src-cell">
+        <div class="src-cell-label">+40% Trim Target</div>
+        <div class="src-cell-val" style="color:var(--green)">${trim1Price}</div>
+      </div>
+    </div>
+    <div class="src-body">${stock.rationale || ''}</div>
+    <div class="src-actions">
+      <button class="src-action-btn primary" onclick="deepDiveFromScreener('${stock.ticker}')">Full 29-Point Analysis →</button>
+      <button class="src-action-btn" onclick="addToWatchlist('${stock.ticker}', this)">+ Watchlist</button>
+      <button class="src-action-btn" onclick="copyTicker('${stock.ticker}', this)">Copy ticker</button>
+      <button class="src-action-btn" style="border-color:rgba(155,114,232,0.4);color:var(--purple)" onclick="factCheck(${idx}, '${stock.ticker}', '${(stock.name||'').replace(/'/g,'')}', '${(stock.primaryShift||'').replace(/'/g,'')}', '${(stock.ruleOf40||'N/A').replace(/'/g,'')}', ${stock.currentPrice||0}, ${sc})">🔍 Fact-Check</button>
+    </div>
+    <div id="fc-${idx}" style="display:none;margin-top:10px"></div>
+    <div id="sources-${idx}" style="display:none;margin-top:6px"></div>
+  </div>`;
+}
+
+function tierSectionHeader(tier, count) {
+  const cfg = {
+    aggressive: { label:'🔥 Aggressive', color:'var(--red)', desc:'Growth & speculative — max 5% per position' },
+    balanced:   { label:'⚖️ Balanced',   color:'var(--accent)', desc:'Core compounders & thematic — max 10% per position' },
+    conservative:{ label:'🛡️ Conservative',color:'var(--blue)', desc:'Dividend & defensive — max 10% per position' },
+  };
+  const c = cfg[tier] || { label: tier, color:'var(--muted)', desc:'' };
+  return `<div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;padding-bottom:8px;border-bottom:1px solid ${c.color}33">
+    <div style="font-size:14px;font-weight:600;color:${c.color}">${c.label}</div>
+    <div style="font-size:11px;color:var(--muted)">${c.desc}</div>
+    <div style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${count} candidates</div>
+  </div>`;
+}
+
+async function runScreener() {
+  const btn = document.getElementById('runScreenerBtn');
+
+  // Check for API key when running locally
+  const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+  if (isLocal && !getAnthropicKey()) {
+    document.getElementById('screenerResults').innerHTML = `
+      <div class="card" style="border-color:rgba(155,114,232,0.35)">
+        <div style="font-size:13px;color:var(--text);margin-bottom:8px">🔑 Anthropic API key required</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px">You're running this app locally. Go to <strong style="color:var(--purple)">Settings & Data</strong> in the left nav and paste your Anthropic API key to enable all AI features.</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.querySelector('[onclick=\\'showPage(\\'settings\\')\\']').click()" style="padding:7px 14px;background:var(--purple);color:#fff;border:none;border-radius:7px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer">Go to Settings →</button>
+          <a href="https://console.anthropic.com/keys" target="_blank" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;text-decoration:none">Get API Key ↗</a>
+        </div>
+      </div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="dot-pulse"><span></span><span></span><span></span></span> Researching markets…';
+
+  updateScreenerShiftBar();
+  document.getElementById('screenerPipeline').style.display = 'block';
+  document.getElementById('screenerResults').innerHTML = '';
+  renderPipeline(0);
+
+  const shiftList = [...activeShifts].map(s => ({
+    wall:'Wall Street Shift', main:'Main Street Shift', innov:'Innovation Shift',
+    broad:'Broad Market Shift', gov:'Government Shift'
+  })[s]).join(', ') || 'all major shift types';
+
+  const sectorMap = {
+    hot: 'domestic industrials, defense/aerospace, energy (oil & gas given $110-120/bbl), domestic materials/steel, AI deployment infrastructure (power grids, data centers, SaaS), nuclear/uranium',
+    industrials: 'domestic manufacturing, defense/aerospace, infrastructure/construction, reshoring beneficiaries',
+    ai: 'AI SaaS deployment, power grid/utilities with AI exposure, data center REITs, enterprise software with AI integration',
+    energy: 'oil & gas E&P, LNG, nuclear energy, uranium mining, pipeline/midstream, domestic energy services'
+  };
+
+  const countMap = { '5': 5, '8': 6, '12': 6 };
+  const targetCount = countMap[screenerCount] || 5;
+  const riskProfiles = [...screenerRisks];
+  const allThree = riskProfiles.length === 3;
+  const perTier = allThree ? Math.ceil(targetCount / 3) : targetCount;
+
+  // Advance pipeline steps while tier calls run
+  let currentStep = 0;
+  const stepInterval = setInterval(() => {
+    if (currentStep < 6) { currentStep++; renderPipeline(currentStep); }
+  }, 3200);
+
+  const tiers = [...screenerRisks];
+  const stocksPerTier = 2;
+
+  async function fetchTier(tier) {
+    const tierDesc = {
+      aggressive: 'high-growth small/mid-cap momentum stock, speculative, 30%+ revenue growth potential, max 5% position',
+      balanced: 'quality compounder or thematic stock, wide moat, mid-large cap, max 10% position',
+      conservative: 'dividend-paying defensive stock, low volatility, consistent FCF, max 10% position'
+    }[tier];
+
+    const p = `Give me ${stocksPerTier} ${tier} stocks for March 2026. Sectors: ${sectorMap[screenerSectorFocus]}. Avoid: PLTR,GOOGL,AMZN,NVDA,AMKR,SNDK,SCHD,GRAB,ASTS. Profile: ${tierDesc}. March 2026: 15% tariffs, oil $110-120, domestic > multinational, AI deployment rotation, OBBBA reshoring.
+
+JSON array only, nothing else:
+[{"ticker":"X","name":"Y","sector":"Z","riskTier":"${tier}","currentPrice":0.0,"score":8,"verdict":"Strong candidate","bucket":"Core","maxPosition":"8%","ruleOf40":"N/A","primaryShift":"Government","rationale":"Why it fits March 2026 in one sentence."}]`;
+
+    const res = await apiFetch({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: p }]
+      })
+    });
+
+    const d = await res.json();
+    console.log(`[Screener] ${tier} response:`, JSON.stringify(d).slice(0, 500));
+
+    // Check for API errors
+    if (d.type === 'error') throw new Error(`API error: ${d.error?.message || JSON.stringify(d.error)}`);
+
+    const txt = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    console.log(`[Screener] ${tier} text:`, txt.slice(0, 300));
+    const results = parseScreenerStocks(txt, tier);
+    console.log(`[Screener] ${tier} parsed ${results.length} stocks`);
+    return results;
+  }
+
+  function parseScreenerStocks(txt, tier) {
+    const stripped = txt.replace(/```json\s*/gi,'').replace(/```\s*/gi,'');
+    const fi = stripped.indexOf('['), li = stripped.lastIndexOf(']');
+    if (fi !== -1 && li > fi) {
+      try { return JSON.parse(stripped.slice(fi, li+1)); } catch(e) {}
+    }
+    // Field-by-field fallback
+    const chunks = stripped.split(/(?=\{"ticker")/g).filter(c=>c.includes('"ticker"'));
+    return chunks.map(chunk => {
+      const end = chunk.search(/\}\s*,?\s*\{/)>-1 ? chunk.search(/\}\s*,?\s*\{/)+1 : chunk.lastIndexOf('}')+1;
+      const obj = chunk.slice(0, end);
+      const ef = (f) => { const m = obj.match(new RegExp(`"${f}"\\s*:\\s*"([^"]*)"`),'i'); return m?m[1]:''; };
+      const en = (f) => { const m = obj.match(new RegExp(`"${f}"\\s*:\\s*([\\d.]+)`)); return m?parseFloat(m[1]):null; };
+      return { ticker:ef('ticker'), name:ef('name'), sector:ef('sector'), riskTier:tier,
+               currentPrice:en('currentPrice'), score:en('score')||7, verdict:ef('verdict')||'Candidate',
+               bucket:ef('bucket')||'Thematic', maxPosition:ef('maxPosition')||'5%',
+               ruleOf40:ef('ruleOf40')||'N/A', primaryShift:ef('primaryShift'), rationale:ef('rationale') };
+    }).filter(s=>s.ticker && s.ticker.length>0 && s.ticker.length<=6);
+  }
+
+  try {
+    let allStocks = [];
+    let tierIdx = 0;
+    const tierErrors = [];
+
+    for (const tier of tiers) {
+      renderPipeline(Math.min(1 + tierIdx * 2, 6));
+      try {
+        const tierStocks = await fetchTier(tier);
+        allStocks = allStocks.concat(tierStocks);
+        console.log(`[Screener] ${tier} added ${tierStocks.length}, total: ${allStocks.length}`);
+      } catch(tierErr) {
+        console.warn(`[Screener] Tier ${tier} failed:`, tierErr.message);
+        tierErrors.push(`${tier}: ${tierErr.message}`);
+      }
+      tierIdx++;
+    }
+
+    clearInterval(stepInterval);
+    renderPipeline(7);
+
+    const stocks = allStocks;
+
+    if (stocks.length === 0) {
+      document.getElementById('screenerResults').innerHTML = `
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <strong style="color:var(--accent)">No results returned</strong>
+            <button onclick="runScreener()" style="padding:6px 14px;background:var(--accent);color:#0a0c0f;border:none;border-radius:6px;font-family:'Sora',sans-serif;font-weight:600;font-size:11px;cursor:pointer">↺ Retry</button>
+          </div>
+          ${tierErrors.length ? `<div style="background:var(--bg3);border-radius:7px;padding:10px 12px;margin-bottom:10px">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">Error details (check browser console for more):</div>
+            ${tierErrors.map(e=>`<div style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace;margin-bottom:3px">⚠ ${e}</div>`).join('')}
+          </div>` : ''}
+          <div style="font-size:11px;color:var(--muted);line-height:1.7">
+            <strong style="color:var(--text)">Troubleshooting checklist:</strong><br>
+            1. Go to <strong>⚙ Settings & Data</strong> and confirm your Anthropic API key is saved (purple panel)<br>
+            2. Make sure the key starts with <code style="color:var(--purple)">sk-ant-api03-</code><br>
+            3. Check you have API credits at <a href="https://console.anthropic.com/settings/billing" target="_blank" style="color:var(--blue)">console.anthropic.com/settings/billing</a><br>
+            4. Open browser DevTools (F12) → Console tab to see the raw error
+          </div>
+        </div>`;
+    } else {
+      const total = stocks.length;
+      const avgScore = (stocks.reduce((s, st) => s + (parseInt(st.score)||5), 0) / total).toFixed(1);
+      const buys = stocks.filter(s => (s.verdict||'').toLowerCase().includes('buy')).length;
+
+      // Summary stats
+      let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:26px;color:var(--accent)">${total}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">CANDIDATES</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:26px;color:var(--green)">${buys}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">BUY SIGNALS</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:26px;color:var(--accent)">${avgScore}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">AVG CONVICTION</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--blue)">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">SCREENED AT</div>
+        </div>
+      </div>`;
+
+      // Group by riskTier then render
+      const tiers = ['aggressive','balanced','conservative'];
+      let globalIdx = 0;
+      tiers.forEach(tier => {
+        const tierStocks = stocks.filter(s => (s.riskTier||'').toLowerCase() === tier);
+        if (tierStocks.length === 0) return;
+        html += tierSectionHeader(tier, tierStocks.length);
+        tierStocks.forEach(s => { html += renderStockCard(s, globalIdx++); });
+      });
+      // Any untiered stocks
+      const untiered = stocks.filter(s => !tiers.includes((s.riskTier||'').toLowerCase()));
+      if (untiered.length > 0) {
+        html += tierSectionHeader('other', untiered.length);
+        untiered.forEach(s => { html += renderStockCard(s, globalIdx++); });
+      }
+
+      document.getElementById('screenerResults').innerHTML = html;
+    }
+  } catch(err) {
+    clearInterval(stepInterval);
+    renderPipeline(7);
+    const isTimeout = err.name === 'AbortError';
+    document.getElementById('screenerResults').innerHTML = `
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <p style="color:var(--red);font-size:13px">${isTimeout ? '⏱ Request timed out after 90s — the AI took too long to respond.' : `Screener error: ${err.message}`}</p>
+          <button onclick="runScreener()" style="padding:6px 14px;background:var(--accent);color:#0a0c0f;border:none;border-radius:6px;font-family:'Sora',sans-serif;font-weight:600;font-size:11px;cursor:pointer">↺ Retry</button>
+        </div>
+        ${isTimeout ? '<p style="font-size:11px;color:var(--muted)">Try reducing candidate count to 5 or 8-10, or retry — web search sometimes takes longer than usual.</p>' : ''}
+      </div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>🔍</span> Find Stocks Matching Full Framework';
+}
+
+// ─── FACT-CHECK ENGINE ────────────────────────────────────────────────────────
+
+function renderFactCheckLoading(containerId, ticker) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<div class="fc-wrap">
+    <div class="fc-header">
+      <span style="font-size:12px;font-weight:500;color:var(--purple)">🔍 Fact-checking ${ticker}…</span>
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">Searching for current price, earnings data, sector flow, and source verification…</div>
+  </div>`;
+}
+
+function renderFactCheckResult(containerId, result) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const overallClass = result.overall === 'verified' ? 'fc-verified' : result.overall === 'partial' ? 'fc-partial' : 'fc-conflict';
+  const overallLabel = result.overall === 'verified' ? '✓ Verified' : result.overall === 'partial' ? '⚠ Partially confirmed' : '✗ Conflicts found';
+
+  const claimsHTML = (result.claims || []).map(c => {
+    const icon = c.status === 'verified' ? '✓' : c.status === 'partial' ? '⚠' : '✗';
+    const color = c.status === 'verified' ? 'var(--green)' : c.status === 'partial' ? 'var(--accent)' : 'var(--red)';
+    return `<div class="fc-claim">
+      <div class="fc-icon" style="color:${color}">${icon}</div>
+      <div>
+        <div class="fc-claim-text"><strong>${c.claim}</strong></div>
+        <div class="fc-claim-note">${c.note}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sourcesHTML = (result.sources || []).map(s =>
+    `<a href="${s.url}" target="_blank" class="fc-source-link">${s.name} ↗</a>`
+  ).join('');
+
+  el.style.display = 'block';
+  el.innerHTML = `<div class="fc-wrap" style="border-color:${result.overall==='verified'?'rgba(76,175,138,0.25)':result.overall==='partial'?'rgba(240,192,64,0.25)':'rgba(224,85,85,0.25)'}">
+    <div class="fc-header">
+      <span style="font-size:12px;font-weight:500;color:var(--text)">Fact-Check Results</span>
+      <span class="fc-badge ${overallClass}">${overallLabel}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--muted)">${new Date().toLocaleTimeString()}</span>
+    </div>
+    ${claimsHTML}
+    ${sourcesHTML ? `<div class="fc-sources">${sourcesHTML}</div>` : ''}
+  </div>`;
+}
+
+async function factCheck(idx, ticker, name, primaryShift, ruleOf40, currentPrice, score) {
+  const fcId = `fc-${idx}`;
+  renderFactCheckLoading(fcId, ticker);
+
+  const prompt = `You are a financial fact-checker for educational purposes. Search the web and verify these 4 claims about ${ticker} (${name}).
+
+CLAIMS TO CHECK:
+1. Price ~$${currentPrice > 0 ? currentPrice.toFixed(2) : 'unknown'}
+2. Primary shift driver: "${primaryShift}"
+3. Rule of 40: "${ruleOf40}"
+4. Conviction: ${score}/10
+
+For each claim write one sentence on what you found. Find 2 real source URLs.
+
+Respond with ONLY this JSON starting with { and ending with }:
+{"overall":"verified","claims":[{"claim":"Price","status":"verified","note":"..."},{"claim":"Shift","status":"partial","note":"..."},{"claim":"Rule of 40","status":"verified","note":"..."},{"claim":"Conviction","status":"partial","note":"..."}],"sources":[{"name":"Source","url":"https://..."}]}`;
+
+  try {
+    const response = await apiFetch({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const allText = (data.content||[]).filter(b => b.type === 'text').map(b => b.text).join('');
+
+    const result = parseFactCheckJSON(allText, ticker, primaryShift, ruleOf40, score);
+    renderFactCheckResult(fcId, result);
+
+  } catch(e) {
+    const el = document.getElementById(fcId);
+    const msg = e.name === 'AbortError' ? 'Timed out — try again' : e.message;
+    if (el) el.innerHTML = `<div class="fc-wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <p style="color:var(--red);font-size:11px">Fact-check failed: ${msg}</p>
+        <a href="https://finviz.com/quote.ashx?t=${ticker}" target="_blank" style="font-size:10px;color:var(--blue);padding:4px 10px;border:1px solid var(--border2);border-radius:5px;text-decoration:none">FINVIZ ↗</a>
+      </div>
+    </div>`;
+  }
+}
+
+async function factCheckDeepDive(ticker, analysisSummary) {
+  const container = document.getElementById('deepDiveFactCheck');
+  if (!container) return;
+  renderFactCheckLoading('deepDiveFactCheck', ticker);
+
+  const prompt = `You are a financial fact-checker for educational purposes. Search the web and verify the key claims in this analysis of ${ticker}.
+
+ANALYSIS TO CHECK:
+"${(analysisSummary||'').slice(0, 500)}"
+
+Find 3-4 specific factual claims, verify each with web search, and find 2-3 real source URLs.
+
+Respond with ONLY this JSON starting with { and ending with }:
+{"overall":"verified","summary":"One sentence assessment","claims":[{"claim":"Specific claim","status":"verified","note":"What you found"}],"sources":[{"name":"Source name","url":"https://..."}]}`;
+
+  try {
+    const response = await apiFetch({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const allText = (data.content||[]).filter(b => b.type === 'text').map(b => b.text).join('');
+
+    const result = parseFactCheckJSON(allText, ticker, '', '', 0);
+    if (result.summary) {
+      result.claims = [{ claim: 'Overall assessment', status: result.overall, note: result.summary }, ...(result.claims||[])];
+    }
+    renderFactCheckResult('deepDiveFactCheck', result);
+
+  } catch(e) {
+    const msg = e.message || 'Unknown error';
+    container.innerHTML = `<div class="fc-wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <p style="color:var(--red);font-size:11px">Fact-check failed: ${msg}</p>
+        <a href="https://finviz.com/quote.ashx?t=${ticker}" target="_blank" style="font-size:10px;color:var(--blue);padding:4px 10px;border:1px solid var(--border2);border-radius:5px;text-decoration:none">FINVIZ ↗</a>
+      </div>
+    </div>`;
+  }
+}
+
+function parseFactCheckJSON(text, ticker, primaryShift, ruleOf40, score) {
+  // Strategy 1: clean code fences and find { ... }
+  const stripped = text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'');
+  const fi = stripped.indexOf('{'), li = stripped.lastIndexOf('}');
+  if (fi !== -1 && li > fi) {
+    try { return JSON.parse(stripped.slice(fi, li+1)); } catch(e) {
+      try {
+        const fixed = stripped.slice(fi, li+1).replace(/,(\s*[}\]])/g,'$1').replace(/([{,]\s*)(\w+):/g,'$1"$2":');
+        return JSON.parse(fixed);
+      } catch(e2) {}
+    }
+  }
+
+  // Strategy 2: field-by-field extraction — never fails
+  function extractStr(src, field) {
+    const m = src.match(new RegExp(`"${field}"\\s*:\\s*"([^"]{0,300})"`, 'i'));
+    return m ? m[1] : '';
+  }
+  function extractArr(src, field) {
+    const start = src.indexOf(`"${field}"`);
+    if (start === -1) return [];
+    const arrStart = src.indexOf('[', start);
+    if (arrStart === -1) return [];
+    let depth = 0, i = arrStart;
+    for (; i < src.length; i++) {
+      if (src[i] === '[') depth++;
+      else if (src[i] === ']') { depth--; if (depth === 0) break; }
+    }
+    try { return JSON.parse(src.slice(arrStart, i+1)); } catch(e) { return []; }
+  }
+
+  const overall = extractStr(stripped, 'overall') || 'partial';
+  let claims = extractArr(stripped, 'claims');
+  let sources = extractArr(stripped, 'sources');
+
+  // Last resort: build claims from what we can scrape from the text
+  if (!claims.length) {
+    const statuses = ['verified','partial','conflict'];
+    const sentences = stripped.split(/[.\n]/).filter(s => s.length > 20 && s.length < 200);
+    claims = [
+      { claim: `Price ~$${currentPrice||'?'}`, status: text.toLowerCase().includes('price') ? 'partial' : 'partial', note: sentences.find(s=>s.toLowerCase().includes('price'))||'See FINVIZ for current price' },
+      { claim: `Shift: ${primaryShift||'—'}`, status: 'partial', note: sentences.find(s=>s.toLowerCase().includes('shift')||s.toLowerCase().includes('sector'))||'Check sector data on FINVIZ' },
+      { claim: `Rule of 40: ${ruleOf40||'N/A'}`, status: 'partial', note: sentences.find(s=>s.toLowerCase().includes('revenue')||s.toLowerCase().includes('margin'))||'Verify in latest earnings report' },
+      { claim: `Conviction: ${score}/10`, status: 'partial', note: sentences.find(s=>s.toLowerCase().includes(ticker.toLowerCase()))||'Review recent news for confirmation' },
+    ];
+  }
+
+  if (!sources.length) {
+    sources = [
+      { name: `FINVIZ — ${ticker}`, url: `https://finviz.com/quote.ashx?t=${ticker}` },
+      { name: `Yahoo Finance — ${ticker}`, url: `https://finance.yahoo.com/quote/${ticker}` },
+      { name: `SEC EDGAR — ${ticker}`, url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=10-K` },
+    ];
+  }
+
+  return { overall, claims, sources, summary: extractStr(stripped, 'summary') };
+}
+
+// ─── ANTHROPIC API KEY (for local use) ───────────────────────────────────────
+function getAnthropicKey() { return localStorage.getItem('msa_anthropic_key') || ''; }
+
+function saveAnthropicKey() {
+  const key = document.getElementById('anthropicKeyInput').value.trim();
+  if (!key) { setAnthropicStatus('Please enter a key.', 'var(--red)'); return; }
+  if (!key.startsWith('sk-ant-')) { setAnthropicStatus('Key should start with sk-ant-…', 'var(--accent)'); }
+  localStorage.setItem('msa_anthropic_key', key);
+  document.getElementById('anthropicKeyInput').value = '';
+  document.getElementById('anthropicKeyInput').placeholder = '••••••••••••••••••••••••••••••••';
+  setAnthropicStatus('✓ Anthropic key saved — AI features now work locally.', 'var(--green)');
+  updateAnthropicDot();
+}
+
+function setAnthropicStatus(msg, color) {
+  const el = document.getElementById('anthropicKeyStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+function updateAnthropicDot() {
+  const key = getAnthropicKey();
+  const dot = document.getElementById('massiveDot');
+  if (key && dot) dot.style.background = 'var(--green)';
+}
+
+async function testAnthropicKey() {
+  const resultEl = document.getElementById('anthropicTestResult');
+  if (resultEl) resultEl.textContent = 'Testing…';
+  try {
+    const res = await apiFetch({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 20,
+        messages: [{ role: 'user', content: 'Reply with the word OK only.' }]
+      })
+    });
+    const d = await res.json();
+    console.log('[API Test]', d);
+    if (d.type === 'error') {
+      if (resultEl) resultEl.innerHTML = `<span style="color:var(--red)">✗ Error ${res.status}: ${d.error?.message}</span>`;
+    } else {
+      const txt = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+      if (resultEl) resultEl.innerHTML = `<span style="color:var(--green)">✓ Connected — response: "${txt.trim()}"</span>`;
+    }
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = `<span style="color:var(--red)">✗ Failed: ${e.message}</span>`;
+    console.error('[API Test]', e);
+  }
+}
+
+// Central fetch wrapper — injects Anthropic key when running locally
+function apiFetch(optsOrBody) {
+  const localKey = getAnthropicKey();
+  const authHeaders = localKey ? {
+    'x-api-key': localKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-calls': 'true'
+  } : {};
+
+  // If passed a full fetch options object (has method or body string), merge auth headers in
+  if (optsOrBody.method || typeof optsOrBody.body === 'string') {
+    return fetch('https://api.anthropic.com/v1/messages', {
+      ...optsOrBody,
+      headers: { ...(optsOrBody.headers||{}), ...authHeaders }
+    });
+  }
+  // Otherwise treat as plain message body object
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify(optsOrBody)
+  });
+}
+const MASSIVE_BASE = 'https://api.massive.com/v2';
+
+function getMassiveKey() { return localStorage.getItem('msa_massive_key') || ''; }
+
+function saveMassiveKey() {
+  const key = document.getElementById('massiveKeyInput').value.trim();
+  if (!key) { showKeyStatus('Please enter a key first.', 'var(--red)'); return; }
+  localStorage.setItem('msa_massive_key', key);
+  document.getElementById('massiveKeyInput').value = '';
+  document.getElementById('massiveKeyInput').setAttribute('placeholder', '••••••••••••••••••••••••••••••••');
+  showKeyStatus('✓ Key saved securely in your browser.', 'var(--green)');
+  updateMassiveUI(true);
+}
+
+function showKeyStatus(msg, color) {
+  const el = document.getElementById('massiveKeyStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+function updateMassiveUI(connected) {
+  const dot = document.getElementById('massiveDot');
+  if (dot) dot.style.background = connected ? 'var(--green)' : 'var(--muted)';
+  const tiles = ['tile-chart','tile-prices','tile-technicals','tile-quote'];
+  tiles.forEach(id => {
+    const t = document.getElementById(id);
+    if (t) {
+      t.style.opacity = connected ? '1' : '0.5';
+      t.style.borderColor = connected ? 'rgba(76,175,138,0.3)' : '';
+      const tag = t.querySelector('div:last-child');
+      if (tag) { tag.textContent = connected ? '✓ Active' : 'Requires API key'; tag.style.color = connected ? 'var(--green)' : 'var(--accent)'; }
+    }
+  });
+  const tp = document.getElementById('testPanel');
+  if (tp) tp.style.display = connected ? 'block' : 'none';
+  // Add refresh button to portfolio if connected
+  const portToolbar = document.getElementById('portRefreshBtn');
+  if (connected && !portToolbar) {
+    const toolbar = document.querySelector('[id="portSaveStatus"]')?.parentElement;
+    if (toolbar) {
+      const btn = document.createElement('button');
+      btn.id = 'portRefreshBtn';
+      btn.className = 'edit-btn';
+      btn.style = 'padding:6px 14px;font-size:11px;border-color:rgba(76,175,138,0.4);color:var(--green)';
+      btn.textContent = '⚡ Refresh Prices';
+      btn.onclick = refreshPortfolioPrices;
+      toolbar.insertBefore(btn, toolbar.children[2]);
+    }
+  }
+}
+
+async function massiveGet(path) {
+  const key = getMassiveKey();
+  if (!key) throw new Error('No Massive API key. Go to Settings & Data to add your key.');
+  const res = await fetch(`${MASSIVE_BASE}${path}`, { headers: { 'Authorization': `Bearer ${key}` } });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Massive API error ${res.status}: ${err.slice(0,120)}`);
+  }
+  return res.json();
+}
+
+// ── LIVE QUOTE ──────────────────────────────────────────────────────────────
+async function fetchQuote(ticker) {
+  ticker = (ticker || document.getElementById('testTicker')?.value || '').toUpperCase().trim();
+  if (!ticker) return;
+  const el = document.getElementById('quoteResult');
+  if (el) el.innerHTML = `<div class="ai-thinking"><span style="font-size:12px;color:var(--muted)">Fetching ${ticker}…</span><div class="dot-pulse"><span></span><span></span><span></span></div></div>`;
+  try {
+    const data = await massiveGet(`/last/trade/${ticker}`);
+    const r = data.results;
+    if (!r) throw new Error('No results');
+    const price = r.p || r.price || 0;
+    if (el) el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--accent)">$${price.toFixed(2)}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">LAST PRICE</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:14px;color:var(--text)">${r.s || r.size || '—'}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">SIZE</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:14px;color:var(--text)">${r.x || r.exchange || '—'}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">EXCHANGE</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.t ? new Date(r.t/1e6).toLocaleTimeString() : '—'}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">TIME</div>
+        </div>
+      </div>`;
+    return price;
+  } catch(e) {
+    if (el) el.innerHTML = `<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;
+    return null;
+  }
+}
+
+// ── OHLCV AGGREGATES & CHART ─────────────────────────────────────────────────
+async function fetchAggs(ticker, days = 90) {
+  const to = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - days * 864e5).toISOString().split('T')[0];
+  const data = await massiveGet(`/aggs/ticker/${ticker}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=120`);
+  return (data.results || []);
+}
+
+function renderCandlestickChart(containerId, ticker, aggs) {
+  if (!aggs || aggs.length < 5) {
+    document.getElementById(containerId).innerHTML = `<p style="color:var(--muted);font-size:12px;padding:16px">Not enough data to render chart.</p>`;
+    return;
+  }
+
+  // Compute 50-DMA
+  const closes = aggs.map(a => a.c);
+  const sma50 = closes.map((_, i) => {
+    if (i < 49) return null;
+    return closes.slice(i-49, i+1).reduce((s,v)=>s+v,0) / 50;
+  });
+
+  // Detect heartbeat (last 20 bars: higher highs and higher lows)
+  const recent = aggs.slice(-20);
+  const highs = recent.map(a=>a.h), lows = recent.map(a=>a.l);
+  const hhCount = highs.filter((h,i)=>i>0&&h>highs[i-1]).length;
+  const hlCount = lows.filter((l,i)=>i>0&&l>lows[i-1]).length;
+  const heartbeat = hhCount >= 10 && hlCount >= 8;
+
+  // 50-DMA signal
+  const lastClose = closes[closes.length-1];
+  const last50 = sma50[sma50.length-1];
+  const aboveDMA = last50 && lastClose > last50;
+
+  // Volume trend (avg last 5 vs avg prior 10)
+  const vols = aggs.map(a=>a.v);
+  const recentVol = vols.slice(-5).reduce((s,v)=>s+v,0)/5;
+  const priorVol = vols.slice(-15,-5).reduce((s,v)=>s+v,0)/10;
+  const volStrength = recentVol > priorVol * 1.1;
+
+  const labels = aggs.map(a => new Date(a.t).toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  const isDark = true; // app is always dark
+
+  const signalHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid ${heartbeat?'rgba(76,175,138,0.4)':'rgba(255,255,255,0.1)'};color:${heartbeat?'var(--green)':'var(--muted)'}">
+        ${heartbeat?'✓':'✗'} Heartbeat pattern
+      </span>
+      <span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid ${aboveDMA?'rgba(76,175,138,0.4)':'rgba(224,85,85,0.4)'};color:${aboveDMA?'var(--green)':'var(--red)'}">
+        ${aboveDMA?'✓ Above':'✗ Below'} 50-DMA ($${last50?last50.toFixed(2):'—'})
+      </span>
+      <span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid ${volStrength?'rgba(76,175,138,0.4)':'rgba(255,255,255,0.1)'};color:${volStrength?'var(--green)':'var(--muted)'}">
+        ${volStrength?'✓':'✗'} Volume accumulation
+      </span>
+      <span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid rgba(240,192,64,0.3);color:var(--accent);font-weight:600">
+        Power Moves: ${[heartbeat,aboveDMA,volStrength].filter(Boolean).length}/3
+      </span>
+    </div>`;
+
+  document.getElementById(containerId).innerHTML = signalHTML + `
+    <div style="position:relative;height:280px"><canvas id="chart-${containerId}"></canvas></div>
+    <div style="position:relative;height:70px;margin-top:4px"><canvas id="vol-${containerId}"></canvas></div>`;
+
+  // Price chart
+  new Chart(document.getElementById(`chart-${containerId}`), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Price',
+          data: aggs.map(a => ({ x: new Date(a.t).toLocaleDateString('en-US',{month:'short',day:'numeric'}), o: a.o, h: a.h, l: a.l, c: a.c })),
+          backgroundColor: aggs.map(a => a.c >= a.o ? 'rgba(76,175,138,0.8)' : 'rgba(224,85,85,0.8)'),
+          borderColor: aggs.map(a => a.c >= a.o ? '#4caf8a' : '#e05555'),
+          borderWidth: 1,
+          type: 'bar',
+          yAxisID: 'y',
+        },
+        {
+          label: '50-DMA',
+          data: sma50,
+          type: 'line',
+          borderColor: '#f0c040',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          yAxisID: 'y',
+          spanGaps: true,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: ctx => ctx.dataset.label === '50-DMA'
+            ? `50-DMA: $${ctx.parsed.y?.toFixed(2) || '—'}`
+            : `O:$${ctx.raw.o?.toFixed(2)} H:$${ctx.raw.h?.toFixed(2)} L:$${ctx.raw.l?.toFixed(2)} C:$${ctx.raw.c?.toFixed(2)}`
+        }
+      }},
+      scales: {
+        x: { ticks: { color:'#7a7f8e', font:{size:9}, maxTicksLimit:10 }, grid: { color:'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color:'#7a7f8e', font:{size:10}, callback: v=>'$'+v.toFixed(0) }, grid: { color:'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+
+  // Volume chart
+  new Chart(document.getElementById(`vol-${containerId}`), {
+    type: 'bar',
+    data: { labels, datasets: [{ data: vols, backgroundColor: aggs.map(a=>a.c>=a.o?'rgba(76,175,138,0.5)':'rgba(224,85,85,0.4)'), borderWidth:0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>`Vol: ${(ctx.parsed.y/1e6).toFixed(1)}M`}} },
+      scales: {
+        x: { ticks:{display:false}, grid:{display:false} },
+        y: { ticks:{ color:'#7a7f8e', font:{size:9}, callback:v=>(v/1e6).toFixed(0)+'M' }, grid:{color:'rgba(255,255,255,0.04)'} }
+      }
+    }
+  });
+}
+
+// ── AUTO-LOAD CHART IN AI DEEP DIVE ─────────────────────────────────────────
+async function loadChartForTicker(ticker) {
+  const key = getMassiveKey();
+  if (!key || !ticker) return;
+  const area = document.getElementById('aiOutputArea');
+  if (!area) return;
+
+  // Inject chart container above the analysis
+  let chartDiv = document.getElementById('liveChartArea');
+  if (!chartDiv) {
+    chartDiv = document.createElement('div');
+    chartDiv.id = 'liveChartArea';
+    chartDiv.className = 'card';
+    chartDiv.style.marginBottom = '14px';
+    chartDiv.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)">Live Chart — ${ticker} · 90 Days · Massive.com</div>
+        <div id="chartLoadStatus" style="font-size:10px;color:var(--muted)"></div>
+      </div>
+      <div id="chartInner"><div class="ai-thinking"><span style="font-size:12px;color:var(--muted)">Loading chart data…</span><div class="dot-pulse"><span></span><span></span><span></span></div></div></div>`;
+    area.parentElement.insertBefore(chartDiv, area);
+  } else {
+    chartDiv.querySelector('#chartInner').innerHTML = `<div class="ai-thinking"><span style="font-size:12px;color:var(--muted)">Loading ${ticker}…</span><div class="dot-pulse"><span></span><span></span><span></span></div></div>`;
+    chartDiv.querySelector('div:first-child div:first-child').textContent = `Live Chart — ${ticker} · 90 Days · Massive.com`;
+  }
+
+  try {
+    const aggs = await fetchAggs(ticker);
+    const lastPrice = aggs.length ? aggs[aggs.length-1].c : null;
+    document.getElementById('chartLoadStatus').textContent = lastPrice ? `Last: $${lastPrice.toFixed(2)}` : '';
+    document.getElementById('chartInner').innerHTML = '';
+    renderCandlestickChart('chartInner', ticker, aggs);
+  } catch(e) {
+    document.getElementById('chartInner').innerHTML = `<p style="color:var(--muted);font-size:11px;padding:8px">Chart unavailable: ${e.message}</p>`;
+  }
+}
+
+// ── PORTFOLIO PRICE REFRESH ──────────────────────────────────────────────────
+async function refreshPortfolioPrices() {
+  const btn = document.getElementById('portRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Refreshing…'; }
+  const status = document.getElementById('portSaveStatus');
+
+  const tickers = portfolio.filter(h => h.type !== 'Cash' && h.type !== 'Metal' && !['GOLD','SLVR','CASH'].includes(h.id));
+  let updated = 0, failed = 0;
+
+  for (const h of tickers) {
+    try {
+      const data = await massiveGet(`/last/trade/${h.id}`);
+      const price = data.results?.p || data.results?.price;
+      if (price && price > 0) { h.price = parseFloat(price.toFixed(4)); updated++; }
+      await new Promise(r => setTimeout(r, 120)); // rate limit spacing
+    } catch(e) { failed++; }
+  }
+
+  renderPortfolio();
+  savePortfolio();
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ Refresh Prices'; }
+  if (status) {
+    status.textContent = `✓ Updated ${updated} prices${failed ? ` (${failed} failed)` : ''} at ${new Date().toLocaleTimeString()}`;
+    status.style.color = failed ? 'var(--accent)' : 'var(--green)';
+  }
+}
+
+// Auto-load chart when AI Deep Dive runs — hook into the analyze button
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('analyzeBtn');
+  if (btn) {
+    const orig = btn.onclick;
+    btn.onclick = async function() {
+      if (orig) orig.call(this);
+      await new Promise(r => setTimeout(r, 800)); // let analysis kick off
+      const ticker = document.getElementById('tickerInput').value.toUpperCase().trim();
+      if (ticker && getMassiveKey()) loadChartForTicker(ticker);
+    };
+  }
+});
+
+// Init: check for saved key on load
+(function initMassive() {
+  const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+
+  // Show local mode banner
+  const banner = document.getElementById('localModeBanner');
+  if (banner && isLocal) banner.style.display = 'block';
+
+  const key = getMassiveKey();
+  if (key) {
+    showKeyStatus('✓ Massive API key connected — live data features active.', 'var(--green)');
+    document.getElementById('massiveKeyInput')?.setAttribute('placeholder', '••••••••••••••••••••••••••••••••');
+    updateMassiveUI(true);
+  }
+  const akey = getAnthropicKey();
+  if (akey) {
+    setAnthropicStatus('✓ Anthropic key connected — all AI features work locally.', 'var(--green)');
+    document.getElementById('anthropicKeyInput')?.setAttribute('placeholder', '••••••••••••••••••••••••••••••••');
+  } else if (isLocal) {
+    setAnthropicStatus('⚠ Add your Anthropic API key above to enable AI features locally.', 'var(--accent)');
+  }
+  updateAnthropicDot();
+})();
+
+// Init portfolio on load
+loadPortfolio();
+setTimeout(() => { if (document.getElementById('portBody')) renderPortfolio(); }, 100);
+</script>
+</body>
+</html>
